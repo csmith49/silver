@@ -1,0 +1,5 @@
+S src/**
+
+PKG containers Z3
+
+B _build/**
