@@ -3,3 +3,4 @@
 "src/core": include
 
 true: annot, bin_annot
+true: use_menhir
