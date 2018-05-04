@@ -38,10 +38,11 @@ program:
   | ss = list(statement); EOI { AST.Block ss }
 
 statement:
-  | e = assignment_statement {e}
   | e = if_statement {e}
   | e = while_statement {e}
   | e = block_statement {e}
+  | e = assignment_statement {e}
+
 
 assignment_statement:
   | x = identifier; ASSIGN; e = expression; SEMICOLON { AST.Assign (x, e) }

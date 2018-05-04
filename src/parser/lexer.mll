@@ -22,8 +22,6 @@ let int = '-'? ['0' - '9'] ['0' - '9']*
 rule read = parse
   | white {read lexbuf}
   | newline {next_line lexbuf; read lexbuf}
-  | id {NAME (Name.of_string (Lexing.lexeme lexbuf))}
-  | int {INT (int_of_string (Lexing.lexeme lexbuf))}
   | '+' {PLUS}
   | '*' {MULT}
   | '-' {MINUS}
@@ -51,3 +49,5 @@ rule read = parse
   | ',' {COMMA}
   | ';' {SEMICOLON}
   | eof {EOI}
+  | id {NAME (Name.of_string (Lexing.lexeme lexbuf))}
+  | int {INT (int_of_string (Lexing.lexeme lexbuf))}
