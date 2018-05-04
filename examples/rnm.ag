@@ -5,6 +5,7 @@ while (i <= n) {
     a[i] ~ lap(1 / e) + q[i](x);
     if (a[i] > max) then {
         best = i;
-        max = a[i]
+        max = a[i];
     }
+    i = i + 1;
 }

@@ -1,5 +1,5 @@
 /* tokens that actually carry some payload */
-%token <Rational.t> RATIONAL
+/* %token <Rational.t> RATIONAL */
 %token <int> INT
 %token <bool> BOOL
 %token <Name.t> NAME
@@ -25,9 +25,11 @@
 %token EQ LT GT LEQ GEQ NEQ
 
 /* assignments and some control flow */
-%token SEMICOLON EOL
+%token SEMICOLON
 %token ASSIGN DRAW COMMA
-%token WHILE IF THEN ELSE DO
+%token WHILE IF THEN ELSE
+%nonassoc THEN
+%nonassoc ELSE
 
 /* entry */
 %start <AST.t> program
@@ -49,8 +51,10 @@ assignment_statement:
   | x = identifier; DRAW; e = expression; SEMICOLON { AST.Draw (x, e) }
 
 if_statement:
-  | IF; c = delimited(LEFT_PAREN, expression, RIGHT_PAREN); THEN; t = statement; ELSE; f = statement 
-  { AST.ITE (c, t, f) }
+  | IF; c = delimited(LEFT_PAREN, expression, RIGHT_PAREN); THEN; t = statement; ELSE; f = statement
+    { AST.ITE (c, t, f) }
+  | IF; c = delimited(LEFT_PAREN, expression, RIGHT_PAREN); THEN; t = statement
+    { AST.ITE (c, t, AST.Block []) }
 
 while_statement:
   | WHILE; c = delimited(LEFT_PAREN, expression, RIGHT_PAREN); b = statement
@@ -96,7 +100,7 @@ identifier:
   | LEQ { Operation.of_string "LEq" }
   | GEQ { Operation.of_string "GEq" }
   | LT { Operation.of_string "LT" }
-  | GT { Operation.of_string "RT" }
+  | GT { Operation.of_string "GT" }
   | AND { Operation.of_string "And" }
   | OR { Operation.of_string "Or" }
 
