@@ -26,10 +26,13 @@ rule read = parse
   | int {INT (int_of_string (Lexing.lexeme lexbuf))}
   | '+' {PLUS}
   | '*' {MULT}
+  | '-' {MINUS}
   | '(' {LEFT_PAREN}
   | ')' {RIGHT_PAREN}
   | '[' {LEFT_BRACKET}
   | ']' {RIGHT_BRACKET}
+  | '{' {LEFT_BRACE}
+  | '}' {RIGHT_BRACE}
   | '/' {DIV}
   | '&' {AND}
   | '|' {OR}
@@ -46,4 +49,5 @@ rule read = parse
   | '=' {ASSIGN}
   | '~' {DRAW}
   | ',' {COMMA}
+  | ';' {SEMICOLON}
   | eof {EOI}

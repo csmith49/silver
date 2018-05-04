@@ -1,9 +1,21 @@
-open Parser
+(* global state and whatnot *)
+let filename = ref "";;
 
-let test = " f(x [(2 + z) * 12])"
+(* command line flags *)
+let args = [
+  ("-f", Arg.Set_string filename, "tbd")
+];;
+let anon_fun = fun x -> ();;
+let usage_msg = "tbd";;
 
-let parse_string s =
-  let lexbuf = Lexing.from_string s in
-    Parser.prog Lexer.read lexbuf
+(* parsing with errors present *)
 
-let _ = print_string ((AST.expr_to_string (parse_string test)) ^ "\n")
+
+(* the main entry point *)
+Arg.parse args anon_fun usage_msg;
+
+(* let's do some parsing *)
+(* load the file into a lexing buffer *)
+let ast = Utility.parse !filename in 
+
+print_endline (AST.to_string ast);
