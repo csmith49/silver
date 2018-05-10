@@ -21,6 +21,17 @@ type t =
   | While of expr * t
   | Block of t list
 
+type quantifier =
+  | Exists
+  | ForAll
+type domain =
+  | Range of expr * expr
+type annotation =
+  | Simple of expr
+  | Quantified of quantifier * Name.t * domain * expr 
+
+type program = annotation * t * annotation
+
 (* makes it easy to construct things elsewhere *)
 module Mk = struct
   exception Empty_list
@@ -60,6 +71,23 @@ and expr_to_string : expr -> string = function
     let f' = id_to_string f in
     let es' = CCList.map expr_to_string es in
       "FunCall(" ^ f' ^ ", " ^ (CCString.concat ", " es') ^ ")"
+
+let rec annotation_to_string : annotation -> string = function
+  | Simple e -> "Simple(" ^ (expr_to_string e) ^ ")"
+  | Quantified (q, i, d, e) ->
+    let q' = quantifier_to_string q in
+    let i' = Name.to_string i in
+    let d' = domain_to_string d in
+    let e' = expr_to_string e in
+      "Quantified(" ^ q' ^ ", " ^ i' ^ ", " ^ d' ^ ", " ^ e' ^ ")"
+and quantifier_to_string : quantifier -> string = function
+  | Exists -> "Exists"
+  | ForAll -> "ForAll"
+and domain_to_string : domain -> string = function
+  | Range (l, r) ->
+    let l' = expr_to_string l in
+    let r' = expr_to_string r in
+      "Range(" ^ l' ^ ", " ^ r' ^ ")"
 
 let rec to_string : t -> string = function
   | Assign (n, e) ->

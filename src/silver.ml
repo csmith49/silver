@@ -16,6 +16,9 @@ Arg.parse args anon_fun usage_msg;
 
 (* let's do some parsing *)
 (* load the file into a lexing buffer *)
-let ast = Utility.parse !filename in 
+let prog = Utility.parse !filename in
+let pre, p, post = prog in
 
-print_endline (AST.to_string ast);
+print_endline (AST.annotation_to_string pre);
+print_endline (AST.to_string p);
+print_endline (AST.annotation_to_string post);

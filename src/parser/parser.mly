@@ -15,6 +15,7 @@
 %token LEFT_PAREN RIGHT_PAREN
 %token LEFT_BRACKET RIGHT_BRACKET
 %token LEFT_BRACE RIGHT_BRACE
+%token LEFT_DOUBLE_BRACE RIGHT_DOUBLE_BRACE
 
 /* arithmetic symbols */
 %token PLUS MULT DIV MINUS
@@ -25,19 +26,22 @@
 %token EQ LT GT LEQ GEQ NEQ
 
 /* assignments and some control flow */
-%token SEMICOLON
+%token SEMICOLON PERIOD
 %token ASSIGN DRAW COMMA
-%token WHILE IF THEN ELSE
+%token WHILE IF THEN ELSE IN
 %nonassoc THEN
 %nonassoc ELSE
 
+/* for conditions */
+%token EXISTS FORALL
+
 /* entry */
-%start <AST.t> program
+%start <AST.program> program
 %%
 
 /* version 2.0 */
 program:
-  | ss = list(statement); EOI { AST.Block ss }
+  | pre = annotation; ss = list(statement); post = annotation; EOI { (pre, AST.Block ss, post) }
 
 statement:
   | e = if_statement {e}
@@ -107,3 +111,18 @@ identifier:
 /* a simplifying macro for above */
 %public plist(X):
   | xs = delimited(LEFT_PAREN, separated_list(COMMA, X), RIGHT_PAREN) { xs }
+
+/* extension 1: syntax for annotations */
+annotation:
+  | xs = delimited(LEFT_DOUBLE_BRACE, quantified_expression, RIGHT_DOUBLE_BRACE) { xs }
+
+quantified_expression:
+  | q = quantifier; i = NAME; IN; d = domain; PERIOD; e = expression { AST.Quantified (q, i, d, e) }
+  | e = expression { AST.Simple e }
+
+domain:
+  | LEFT_BRACKET; l = expression; PERIOD; PERIOD; r = expression; RIGHT_BRACKET { AST.Range (l, r) }
+
+%inline quantifier:
+  | EXISTS { AST.Exists }
+  | FORALL { AST.ForAll }

@@ -29,6 +29,8 @@ rule read = parse
   | ')' {RIGHT_PAREN}
   | '[' {LEFT_BRACKET}
   | ']' {RIGHT_BRACKET}
+  | "{{" {LEFT_DOUBLE_BRACE}
+  | "}}" {RIGHT_DOUBLE_BRACE}
   | '{' {LEFT_BRACE}
   | '}' {RIGHT_BRACE}
   | '/' {DIV}
@@ -36,14 +38,18 @@ rule read = parse
   | '|' {OR}
   | '!' {NOT}
   | "==" {EQ}
-  | '<' {LT}
-  | '>' {GT}
   | "<=" {LEQ}
   | ">=" {GEQ}
+  | '<' {LT}
+  | '>' {GT}
   | "while" {WHILE}
   | "if" {IF}
   | "then" {THEN}
   | "else" {ELSE}
+  | "in" {IN}
+  | "for" {FORALL}
+  | "exists" {EXISTS}
+  | '.' {PERIOD}
   | '=' {ASSIGN}
   | '~' {DRAW}
   | ',' {COMMA}

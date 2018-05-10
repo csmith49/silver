@@ -5,12 +5,12 @@ module I = Parser.MenhirInterpreter
 exception ParseFailure of string
 
 (* load an ast from a file *)
-let rec parse : string -> AST.t = fun filename ->
+let rec parse : string -> AST.program = fun filename ->
   let lexbuf = Lexing.from_channel (open_in filename) in
   let checkpoint = Parser.Incremental.program lexbuf.Lexing.lex_curr_p in
   let supplier = I.lexer_lexbuf_to_supplier Lexer.read lexbuf in
     I.loop_handle success (failure lexbuf) supplier checkpoint
-and success : AST.t -> AST.t = fun x -> x
+and success : AST.program -> AST.program = fun x -> x
 and failure lexbuf checkpoint = match checkpoint with
   | I.HandlingError env ->
     let (b, e) = I.positions env in
