@@ -1,4 +1,3 @@
-open Name.Infix
 open Rational
 
 type expr =
@@ -6,7 +5,7 @@ type expr =
   | Identifier of id
   | BinaryOp of Operation.t * expr * expr
   | UnaryOp of Operation.t * expr
-  | FunCall of id * expr list
+  | FunCall of Operation.t * expr list
 and id =
   | Var of Name.t
   | IndexedVar of Name.t * expr
@@ -59,18 +58,18 @@ and expr_to_string : expr -> string = function
   | Literal l -> lit_to_string l
   | Identifier n -> id_to_string n
   | BinaryOp (o, l, r) ->
-    let o' = Operation.to_string o in
+    let o' = o.Operation.symbol in
     let l' = expr_to_string l in
     let r' = expr_to_string r in
-      "BinaryOp(" ^ o' ^ ", " ^ l' ^ ", " ^ r' ^ ")"
+      l' ^ " " ^ o' ^ " " ^ r'
   | UnaryOp(o, e) ->
-    let o' = Operation.to_string o in
+    let o' = o.Operation.symbol in
     let e' = expr_to_string e in
-      "UnaryOp(" ^ o' ^ ", " ^ e' ^ ")"
+      o' ^ "(" ^ e' ^ ")"
   | FunCall (f, es) ->
-    let f' = id_to_string f in
+    let f' = f.Operation.symbol in
     let es' = CCList.map expr_to_string es in
-      "FunCall(" ^ f' ^ ", " ^ (CCString.concat ", " es') ^ ")"
+      f' ^ "(" ^ (CCString.concat ", " es') ^ ")"
 
 let rec annotation_to_string : annotation -> string = function
   | Simple e -> "Simple(" ^ (expr_to_string e) ^ ")"

@@ -1,6 +1,8 @@
 "src": include
 "src/parser": include
 "src/core": include
+"src/automata": include
+"src/logic": include
 
 true: annot, bin_annot
 true: use_menhir, table, explain

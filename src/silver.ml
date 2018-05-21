@@ -1,3 +1,5 @@
+open Static
+
 (* global state and whatnot *)
 let filename = ref "";;
 
@@ -18,7 +20,6 @@ Arg.parse args anon_fun usage_msg;
 (* load the file into a lexing buffer *)
 let prog = Utility.parse !filename in
 let pre, p, post = prog in
+let automata = Program.of_ast p in
 
-print_endline (AST.annotation_to_string pre);
-print_endline (AST.to_string p);
-print_endline (AST.annotation_to_string post);
+print_endline (Program.summary automata);

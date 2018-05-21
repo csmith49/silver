@@ -55,5 +55,7 @@ rule read = parse
   | ',' {COMMA}
   | ';' {SEMICOLON}
   | eof {EOI}
+  | "true" {BOOL (bool_of_string (Lexing.lexeme lexbuf))}
+  | "false" {BOOL (bool_of_string (Lexing.lexeme lexbuf))}
   | id {NAME (Name.of_string (Lexing.lexeme lexbuf))}
   | int {INT (int_of_string (Lexing.lexeme lexbuf))}

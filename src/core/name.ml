@@ -3,7 +3,8 @@ type t = Name of string * int
 
 (* simple constructors and printers *)
 let of_string (s : string) : t = Name (s, 0)
-let to_string : t -> string = function Name (s, _) -> s
+let to_string : t -> string = function Name (s, i) ->
+  if i = 0 then s else s ^ ":" ^ (string_of_int i)
 
 (* comparison is straightforward - by index, then by string *)
 (* no clue if order actually matters *)

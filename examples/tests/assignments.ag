@@ -1,3 +1,0 @@
-x = true;
-y ~ lap(4, y[2] + !x);
-zed = !(true & false);

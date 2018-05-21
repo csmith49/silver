@@ -79,7 +79,14 @@ unary:
 base:
   | c = literal {c}
   | x = identifier { AST.Identifier x }
-  | f = identifier; args = plist(expression) { AST.FunCall (f, args) }
+  | f = NAME; args = plist(expression) 
+    { 
+      match Operation.find_op f with
+        | Some f -> AST.FunCall (f, args)
+        | None ->
+          let f = Operation.mk_op f (CCList.length args) in
+            AST.FunCall (f, args)
+    }
   | e = delimited(LEFT_PAREN, expression, RIGHT_PAREN) { e }
 
 literal:
@@ -92,21 +99,21 @@ identifier:
 
 /* the operations */
 %inline unary_op:
-  | NOT { Operation.of_string "Not" }
-  | MINUS { Operation.of_string "Minus" }
+  | NOT { Operation.Defaults.not_ }
+  | MINUS { Operation.Defaults.negative }
 %inline binary_op:
-  | PLUS { Operation.of_string "Plus" }
-  | MULT { Operation.of_string "Mult" }
-  | DIV  { Operation.of_string "Div" }
-  | MINUS { Operation.of_string "Minus" }
-  | EQ { Operation.of_string "Eq" }
-  | NEQ { Operation.of_string "NEq" }
-  | LEQ { Operation.of_string "LEq" }
-  | GEQ { Operation.of_string "GEq" }
-  | LT { Operation.of_string "LT" }
-  | GT { Operation.of_string "GT" }
-  | AND { Operation.of_string "And" }
-  | OR { Operation.of_string "Or" }
+  | PLUS { Operation.Defaults.plus }
+  | MULT { Operation.Defaults.mult }
+  | DIV  { Operation.Defaults.div }
+  | MINUS { Operation.Defaults.minus }
+  | EQ { Operation.Defaults.eq }
+  | NEQ { Operation.Defaults.neq }
+  | LEQ { Operation.Defaults.leq }
+  | GEQ { Operation.Defaults.geq }
+  | LT { Operation.Defaults.lt }
+  | GT { Operation.Defaults.gt }
+  | AND { Operation.Defaults.and_ }
+  | OR { Operation.Defaults.or_ }
 
 /* a simplifying macro for above */
 %public plist(X):
