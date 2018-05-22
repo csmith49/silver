@@ -38,6 +38,11 @@ module Path = struct
       | [] -> false
       | x :: xs -> if List.mem x xs then true else contains_duplicates xs
     in p |> to_states |> contains_duplicates
+
+  (* mapping happens over states *)
+  let map (f : 'v -> 'w) (p : ('v, 'e) t) : ('w, 'e) t =
+    let map_step = fun (s, l, d) -> (f s, l, f d) in
+      CCList.map map_step p
 end
 
 (* we can also think of paths as graphs in a very natural way *)
@@ -51,8 +56,8 @@ let map (f : 'v -> 'n) (h : 'n -> 'v) (g : ('v, 'e) t) : ('n, 'e) t = fun n ->
 
 (* for map2, we need projections to the components of the preimage *)
 let map2 (f : 'a -> 'b -> 'c) (x : 'c -> 'a) (y : 'c -> 'b) (g : ('a, 'e) t) (h : ('b, 'e) t) : ('c, 'e) t = fun n ->
-  CCList.cartesian_product [n |> x |> g; n |> y |> h] 
-    |> CCList.filter_map (fun xs -> match xs with [l; r] -> Some (l, r) | _ -> None) 
+  let a_edges = n |> x |> g in let b_edges = n |> y |> h in a_edges
+    |> CCList.flat_map (fun a -> CCList.map (fun b -> (a, b)) b_edges)
     |> CCList.filter_map (fun ((le, a), (re, b)) -> if le = re then Some (le, f a b) else None)
 
 (* the simplest instantiation of map2 just pairs up the result *)

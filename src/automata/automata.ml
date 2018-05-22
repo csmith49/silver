@@ -40,6 +40,20 @@ let negate : ('s, 'e) t -> ('s, 'e) t = fun a ->
       accepting = CCList.filter not_accepted a.states;
     }
 
+(* intersection is the usual *)
+let intersect (l : ('s, 'e) t) (r : ('t, 'e) t) : ('s * 't, 'e) t = {
+  states = l.states
+    |> CCList.flat_map (fun a -> CCList.map (fun b -> (a, b)) r.states);
+  start = (l.start, r.start);
+  delta = Graph.map2 (fun l -> fun r -> (l, r)) fst snd l.delta r.delta;
+  accepting = l.accepting
+    |> CCList.flat_map (fun a -> CCList.map (fun b -> (a, b)) r.accepting);
+}
+
+(* and we will want to check emptiness of the language - by getting a word *)
+let get_word : ('s, 'e) t -> ('s, 'e) Graph.Path.t option = fun a ->
+  Graph.bfs [a.start] a.accepting a.delta
+
 (* some summary utilities, so we can actually inspect the resulting graphs *)
 let summary (np : 's -> string) (ep : 'e -> string) (a : ('s, 'e) t) : string = 
   let local_view = fun v ->

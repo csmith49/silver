@@ -1,5 +1,6 @@
 open Static
 open Graph
+open Abstraction
 
 (* global state and whatnot *)
 let filename = ref "";;
