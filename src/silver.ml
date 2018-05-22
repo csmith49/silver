@@ -1,4 +1,5 @@
 open Static
+open Graph
 
 (* global state and whatnot *)
 let filename = ref "";;
