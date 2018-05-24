@@ -37,11 +37,19 @@
 
 /* entry */
 %start <AST.program> program
+%start <AST.expr> just_expression
+%start <AST.id> just_identifier
 %%
 
 /* version 2.0 */
 program:
   | pre = annotation; ss = list(statement); post = annotation; EOI { (pre, AST.Block ss, post) }
+
+just_expression:
+  | e = expression; EOI { e }
+
+just_identifier:
+  | e = identifier; EOI { e }
 
 statement:
   | e = if_statement {e}

@@ -3,6 +3,7 @@
 "src/core": include
 "src/automata": include
 "src/logic": include
+"src/proof": include
 
 true: annot, bin_annot
 true: use_menhir, table, explain

@@ -17,3 +17,16 @@ and failure lexbuf checkpoint = match checkpoint with
     let msg = Lexing.sub_lexeme lexbuf b.Lexing.pos_cnum e.Lexing.pos_cnum in
       raise (ParseFailure msg)
   | _ -> raise Exit
+
+
+let parse_expr : string -> AST.expr = fun s ->
+  let lexbuf = Lexing.from_string s in
+  let checkpoint = Parser.Incremental.just_expression lexbuf.Lexing.lex_curr_p in
+  let supplier = I.lexer_lexbuf_to_supplier Lexer.read lexbuf in
+    I.loop supplier checkpoint
+
+let parse_id : string -> AST.id = fun s ->
+  let lexbuf = Lexing.from_string s in
+  let checkpoint = Parser.Incremental.just_identifier lexbuf.Lexing.lex_curr_p in
+  let supplier = I.lexer_lexbuf_to_supplier Lexer.read lexbuf in
+    I.loop supplier checkpoint
