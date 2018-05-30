@@ -4,6 +4,7 @@
 "src/automata": include
 "src/logic": include
 "src/proof": include
+"src/synth": include
 
 true: annot, bin_annot
 true: use_menhir, table, explain
