@@ -1,4 +1,5 @@
 module T = Types
+module S = SMT.Default
 
 open CCFun
 
@@ -7,7 +8,7 @@ type t = {
   symbol : string;
   signature : Types.t;
   value_encoding : Value.t list -> Value.t;
-  solver_encoding : Solver.expr list -> Solver.expr;
+  solver_encoding : S.Expr.t list -> S.Expr.t;
 }
 
 (* for building solver encodings and whatnot *)
@@ -23,10 +24,6 @@ let lift_binary (f : 'a -> 'a -> 'a) : 'a list -> 'a = function
 (* to string is easy enough now, but of string requires a default set of operators *)
 let to_string : t -> string = fun o -> Name.to_string o.name
 
-(* for using operators and defining encodings easier *)
-let (<*) (o : t) (f : Solver.expr list -> Solver.expr) : Solver.expr list -> Solver.expr =
-  fun xs -> o.solver_encoding [f xs]
-
 (* here we work to define the defaults *)
 module Defaults = struct
   (* some default type constuctors *)
@@ -40,14 +37,14 @@ module Defaults = struct
     symbol = "!";
     signature = f [boolean] boolean;
     value_encoding = lift_unary (Value.of_bool % not % Value.to_bool);
-    solver_encoding = lift_unary (Solver.Bool.mk_not Solver.context);
+    solver_encoding = lift_unary S.Expr.not;
   }
   let negative = {
     name = Name.of_string "Negative";
     symbol = "-";
     signature = f [rational] rational;
     value_encoding = lift_unary (Value.of_float % (fun f -> f *. -1.0) % Value.to_float);
-    solver_encoding = lift_unary (Solver.Arith.mk_unary_minus Solver.context);
+    solver_encoding = lift_unary S.Expr.negative;
   }
   let unary = [not_; negative]
 
@@ -56,29 +53,33 @@ module Defaults = struct
     name = Name.of_string "Plus";
     symbol = "+";
     signature = f [rational ; rational] rational;
-    value_encoding = lift_binary (fun v -> fun w -> Value.of_float ((Value.to_float v) +. (Value.to_float w)));
-    solver_encoding = Solver.Arith.mk_add Solver.context;
+    value_encoding = lift_binary (fun v -> fun w -> 
+      Value.of_float ((Value.to_float v) +. (Value.to_float w)));
+    solver_encoding = lift_binary S.Expr.plus;
   }
   let mult = {
     name = Name.of_string "Mult";
     symbol = "*";
     signature = f [rational ; rational] rational;
-    value_encoding = lift_binary (fun v -> fun w -> Value.of_float ((Value.to_float v) *. (Value.to_float w)));
-    solver_encoding = Solver.Arith.mk_mul Solver.context;
+    value_encoding = lift_binary (fun v -> fun w ->
+      Value.of_float ((Value.to_float v) *. (Value.to_float w)));
+    solver_encoding = lift_binary S.Expr.mult;
   }
   let div = {
     name = Name.of_string "Div";
     symbol = "/";
     signature = f [rational ; rational] rational;
-    value_encoding = lift_binary (fun v -> fun w -> Value.of_float ((Value.to_float v) /. (Value.to_float w)));
-    solver_encoding = lift_binary (Solver.Arith.mk_div Solver.context);
+    value_encoding = lift_binary (fun v -> fun w ->
+      Value.of_float ((Value.to_float v) /. (Value.to_float w)));
+    solver_encoding = lift_binary S.Expr.div;
   }
   let minus = {
     name = Name.of_string "Minus";
     symbol = "-";
     signature = f [rational ; rational] rational;
-    value_encoding = lift_binary (fun v -> fun w -> Value.of_float ((Value.to_float v) -. (Value.to_float w)));
-    solver_encoding = Solver.Arith.mk_sub Solver.context;
+    value_encoding = lift_binary (fun v -> fun w ->
+      Value.of_float ((Value.to_float v) -. (Value.to_float w)));
+    solver_encoding = lift_binary S.Expr.minus;
   }
   let arithmetic = [plus; mult; div; minus]
 
@@ -87,43 +88,49 @@ module Defaults = struct
     name = Name.of_string "Eq";
     symbol = "==";
     signature = f [rational ; rational] boolean;
-    value_encoding = lift_binary (fun v -> fun w -> Value.of_bool ((Value.to_float v) = (Value.to_float w)));
-    solver_encoding = lift_binary (Solver.Bool.mk_eq Solver.context);
+    value_encoding = lift_binary (fun v -> fun w ->
+      Value.of_bool ((Value.to_float v) = (Value.to_float w)));
+    solver_encoding = lift_binary S.Expr.eq;
   }
   let neq = {
     name = Name.of_string "NEq";
     symbol = "!=";
     signature = f [rational ; rational] boolean;
-    value_encoding = lift_binary (fun v -> fun w -> Value.of_bool ((Value.to_float v) != (Value.to_float w)));
-    solver_encoding = not_ <* eq.solver_encoding;
+    value_encoding = lift_binary (fun v -> fun w ->
+      Value.of_bool ((Value.to_float v) != (Value.to_float w)));
+    solver_encoding = lift_binary S.Expr.neq;
   }
   let leq = {
     name = Name.of_string "LEq";
     symbol = "<=";
     signature = f [rational ; rational] boolean;
-    value_encoding = lift_binary (fun v -> fun w -> Value.of_bool ((Value.to_float v) <= (Value.to_float w)));
-    solver_encoding = lift_binary (Solver.Arith.mk_le Solver.context);
+    value_encoding = lift_binary (fun v -> fun w ->
+      Value.of_bool ((Value.to_float v) <= (Value.to_float w)));
+    solver_encoding = lift_binary S.Expr.leq;
   }
   let geq = {
     name = Name.of_string "GEq";
     symbol = ">=";
     signature = f [rational ; rational] boolean;
-    value_encoding = lift_binary (fun v -> fun w -> Value.of_bool ((Value.to_float v) >= (Value.to_float w)));
-    solver_encoding = lift_binary (Solver.Arith.mk_ge Solver.context);
+    value_encoding = lift_binary (fun v -> fun w ->
+      Value.of_bool ((Value.to_float v) >= (Value.to_float w)));
+    solver_encoding = lift_binary S.Expr.geq;
   }
   let lt = {
     name = Name.of_string "LT";
     symbol = "<";
     signature = f [rational ; rational] boolean;
-    value_encoding = lift_binary (fun v -> fun w -> Value.of_bool ((Value.to_float v) < (Value.to_float w)));
-    solver_encoding = lift_binary (Solver.Arith.mk_lt Solver.context);
+    value_encoding = lift_binary (fun v -> fun w ->
+      Value.of_bool ((Value.to_float v) < (Value.to_float w)));
+    solver_encoding = lift_binary S.Expr.lt;
   }
   let gt = {
     name = Name.of_string "GT";
     symbol = ">";
     signature = f [rational ; rational] boolean;
-    value_encoding = lift_binary (fun v -> fun w -> Value.of_bool ((Value.to_float v) > (Value.to_float w)));
-    solver_encoding = lift_binary (Solver.Arith.mk_gt Solver.context);
+    value_encoding = lift_binary (fun v -> fun w ->
+      Value.of_bool ((Value.to_float v) > (Value.to_float w)));
+    solver_encoding = lift_binary S.Expr.gt;
   }
   let comparisons = [eq; neq; leq; geq; lt; gt]
 
@@ -132,15 +139,17 @@ module Defaults = struct
     name = Name.of_string "And";
     symbol = "&";
     signature = f [boolean ; boolean] boolean;
-    value_encoding = lift_binary (fun v -> fun w -> Value.of_bool ((Value.to_bool v) && (Value.to_bool w)));
-    solver_encoding = Solver.Bool.mk_and Solver.context;
+    value_encoding = lift_binary (fun v -> fun w ->
+      Value.of_bool ((Value.to_bool v) && (Value.to_bool w)));
+    solver_encoding = lift_binary S.Expr.and_;
   }
   let or_ = {
     name = Name.of_string "And";
     symbol = "|";
     signature = f [boolean ; boolean] boolean;
-    value_encoding = lift_binary (fun v -> fun w -> Value.of_bool ((Value.to_bool v) || (Value.to_bool w)));
-    solver_encoding = Solver.Bool.mk_or Solver.context;
+    value_encoding = lift_binary (fun v -> fun w ->
+      Value.of_bool ((Value.to_bool v) || (Value.to_bool w)));
+    solver_encoding = lift_binary S.Expr.or_;
   }
   let logical = [and_; or_]
 

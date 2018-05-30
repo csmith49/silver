@@ -26,8 +26,8 @@ type pattern = AST.expr SymbolGrammar.production
 
 (* for printing patterns and whatnot *)
 let pattern_to_string : pattern -> string = fun patt ->
-  let dummy_inputs = CCList.map Symbol.to_expr patt.input in
-  let dummy_expr = patt.apply dummy_inputs in
+  let dummy_inputs = CCList.map Symbol.to_expr patt.SymbolGrammar.input in
+  let dummy_expr = patt.SymbolGrammar.apply dummy_inputs in
     AST.expr_to_string dummy_expr
 
 (* for easily making patterns *)
@@ -62,7 +62,7 @@ let pattern_of_pair : Symbol.t * AST.expr -> pattern = fun (s, e) ->
   let vars, input = CCList.split ss in
   let app_fun = fun es -> Substitution.apply expr (Substitution.of_list (CCList.combine vars es)) in
   {
-    apply = app_fun;
+    SymbolGrammar.apply = app_fun;
     input = input;
     output = s;
   }

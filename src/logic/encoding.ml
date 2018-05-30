@@ -1,0 +1,37 @@
+module S = SMT.Default
+
+exception Encoding_error
+
+let type_to_sort : Types.t -> S.Sort.t = function
+  | Types.Base (Types.Rational) -> S.Sort.rational
+  | Types.Base (Types.Boolean) -> S.Sort.boolean
+  | _ -> raise Encoding_error
+
+let rec encode (c : Types.Environment.t) : AST.expr -> S.Expr.t = function
+  | AST.Literal l -> encode_literal l
+  | AST.Identifier i -> encode_identifier c i
+  | AST.BinaryOp (o, l, r) ->
+    let l' = encode c l in
+    let r' = encode c r in
+      o.Operation.solver_encoding [l'; r']
+  | AST.UnaryOp (o, e) ->
+    o.Operation.solver_encoding [encode c e]
+  | AST.FunCall (f, args) ->
+    f.Operation.solver_encoding (CCList.map (encode c) args)
+and encode_literal : AST.lit -> S.Expr.t = function
+  | AST.Rational q -> begin match q with
+      | Rational.Q (n, d) -> S.Expr.rational n d
+    end
+  | AST.Boolean b -> S.Expr.bool b
+and encode_identifier (c : Types.Environment.t) : AST.id -> S.Expr.t = function
+  | AST.Var n -> begin match Types.Environment.get_type n c with
+      | Some t -> S.Expr.variable (Name.to_string n) (type_to_sort t)
+      | _ -> raise Encoding_error
+    end
+  | AST.IndexedVar (n, e) -> begin match Types.Environment.get_type n c with
+      | Some (Types.Indexed (dom, codom)) ->
+        let f = S.F.mk (Name.to_string n) [type_to_sort dom] (type_to_sort codom) in
+        let e' = encode c e in
+          S.F.apply f [e']
+      | _ -> raise Encoding_error
+    end

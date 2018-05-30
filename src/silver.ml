@@ -1,9 +1,8 @@
 open Static
 open Graph
-open Abstraction
-open Axiom
 
 open Synth
+open Encoding
 
 (* global state and whatnot *)
 let filename = ref "";;
