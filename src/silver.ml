@@ -1,8 +1,9 @@
 open Static
 open Graph
 open Abstraction
-open Encoding
 open Axiom
+
+open Synth
 
 (* global state and whatnot *)
 let filename = ref "";;
@@ -27,3 +28,4 @@ let pre, p, post = prog in
 let automata = Program.of_ast p in
 
 print_endline (Program.summary automata);
+print_endline (("int", "lap(float) + int") |> Synth.mk |> pattern_to_string);
