@@ -49,6 +49,18 @@ module Make = functor (C : CONTEXT) -> struct
 
     (* and variables *)
     let variable : string -> Sort.t -> t = Z3.Expr.mk_const_s C.context
+
+    (* some type checking *)
+    let is_bool : t -> bool = Z3.Boolean.is_bool
+    let is_rational : t -> bool = Z3.Arithmetic.is_rat_numeral
+
+    (* and conversions *)
+    let to_bool : t -> bool = fun e -> match Z3.Boolean.get_bool_value e with
+      | Z3enums.L_FALSE -> false
+      | Z3enums.L_TRUE -> true
+      | _ -> raise (Invalid_argument "that's not a bool")
+
+    let to_rational : t -> Rational.t = fun e -> Rational.of_ratio (Z3.Arithmetic.Real.get_ratio e)
   end
 
   module F = struct
@@ -65,6 +77,30 @@ module Make = functor (C : CONTEXT) -> struct
 
   module Model = struct
     type t = Z3.Model.model
+
+    let constant_declarations : t -> F.t list = Z3.Model.get_const_decls
+    let function_declarations : t -> F.t list = Z3.Model.get_func_decls
+
+    let constants : t -> Symbol.t list = fun m -> m
+      |> constant_declarations
+      |> CCList.map F.symbol
+
+    let functions : t -> Symbol.t list = fun m -> m
+      |> function_declarations
+      |> CCList.map F.symbol
+
+    let get_constant : t -> Symbol.t -> Expr.t = fun m -> fun s ->
+      let decl = constant_declarations m |> CCList.filter (fun d -> (F.symbol d) = s) |> CCList.hd in
+        CCOpt.get_exn (Z3.Model.get_const_interp m decl)
+
+    type entry = Expr.t list * Expr.t
+
+    let get_function : t -> Symbol.t -> entry list = fun m -> fun s ->
+      let decl = function_declarations m |> CCList.filter (fun d -> (F.symbol d) = s) |> CCList.hd in
+      let interp = CCOpt.get_exn (Z3.Model.get_func_interp m decl) in
+      let get_entry = 
+        fun e -> (Z3.Model.FuncInterp.FuncEntry.get_args e, Z3.Model.FuncInterp.FuncEntry.get_value e) in
+          CCList.map get_entry (Z3.Model.FuncInterp.get_entries interp)
   end
 
   module Answer = struct
@@ -80,9 +116,11 @@ module Make = functor (C : CONTEXT) -> struct
     let make : unit -> t = fun _ -> Z3.Solver.mk_simple_solver C.context
 
     let add (solver : t) (e : Expr.t) = Z3.Solver.add solver [e]
-    let assert_ (solver : t) (p : Expr.t) (e : Expr.t) = Z3.Solver.assert_and_track solver p e
+    let assert_ (solver : t) (p : Expr.t) (e : Expr.t) = Z3.Solver.assert_and_track solver e p
 
-    let check : t -> Expr.t list -> Answer.t = fun s -> fun es -> match Z3.Solver.check s es with
+    let propositional : string -> Expr.t = fun s -> Expr.variable s Sort.boolean
+
+    let check : t -> Answer.t = fun s -> match Z3.Solver.check s [] with
       | Z3.Solver.UNSATISFIABLE -> Answer.Unsat
       | Z3.Solver.UNKNOWN -> Answer.Unknown
       | Z3.Solver.SATISFIABLE -> Answer.Sat (CCOpt.get_exn @@ Z3.Solver.get_model s)
@@ -90,49 +128,3 @@ module Make = functor (C : CONTEXT) -> struct
 end
 
 module Default = Make(struct let context = Z3.mk_context [] end)
-
-(* renaming modules to make things easier later *)
-module Bool = Z3.Boolean
-module Real = Z3.Arithmetic.Real
-module Arith = Z3.Arithmetic
-module Func = Z3.FuncDecl
-module Model = Z3.Model
-
-(* type wrappers to be used elsewhere *)
-type solver = Z3.Solver.solver
-type expr = Z3.Expr.expr
-
-(* global contexts and whatnot *)
-let context_args = []
-let context : Z3.context = Z3.mk_context context_args
-
-(* global solver, probably good enough *)
-let solver = Z3.Solver.mk_simple_solver context
-
-(* other utilities for converting to solver-specific things *)
-let type_to_sort : Types.t -> Z3.Sort.sort = function
-  | Types.Base a -> begin match a with
-      | Types.Rational -> Real.mk_sort context
-      | Types.Boolean -> Bool.mk_sort context
-    end
-  | _ -> raise (Invalid_argument "can't convert non-base types to sorts")
-
-let name_to_symbol : Name.t -> Z3.Symbol.symbol =
-  fun n -> Z3.Symbol.mk_string context (Name.to_string n)
-
-let mk_const (symbol : Z3.Symbol.symbol) (s : Z3.Sort.sort) : expr = Z3.Expr.mk_const context symbol s
-
-(* we want to be able to extract certain ocaml primitive values from expressions *)
-module Extract = struct
-  exception Extraction_error
-
-  let to_bool : expr -> bool = fun e ->
-    if Bool.is_true e then true 
-    else if Bool.is_false e then false 
-    else raise Extraction_error
-
-  let to_rational : expr -> Rational.t = fun e ->
-    let n = e |> Real.get_numerator |> Arith.Integer.get_int in
-    let d = e |> Real.get_denominator |> Arith.Integer.get_int in
-      Rational.Q (n, d)
-end

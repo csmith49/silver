@@ -1,48 +1,54 @@
-module FloatMap = CCMap.Make(struct type t = float let compare = Pervasives.compare end)
+(* despite the fact that we use rationals everywhere... *)
+(* log isn't closed over Q - we have to switch to R for evaluating models *)
+module Number = struct
+  type t = CCFloat.t
 
-module FiniteMap = struct
-  module FloatMap = CCMap.Make(struct type t = float let compare = Pervasives.compare end)
-
-  exception Unbound_index of float
-
-  type t = float FloatMap.t
-
-  let get (f : float) (m : t) : float = match FloatMap.get f m with
-    | Some f -> f
-    | None -> raise (Unbound_index f)
-
-  let to_string : t -> string = fun m ->
-    let pp = fun (k, v) -> (string_of_float k) ^ " => " ^ (string_of_float v) in
-    let vals = FloatMap.to_list m |> CCList.map pp |> CCString.concat ", " in
-      "{" ^ vals ^ "}"
-
+  let to_string : t -> string = string_of_float
 end
 
-(* despite the fact that we use rationals everywhere else... *)
-(* since they are not closed under log and exp, we switch to reals for evaluation *)
 type t =
-  | Real of float
-  | Bool of bool
+  | Number of Number.t
+  | Boolean of bool
 
-let to_string : t -> string = function
-  | Real f -> string_of_float f
-  | Bool b -> string_of_bool b
-  
-(* some helpers *)
-let to_float : t -> float = function
-  | Real f -> f
-  | _ -> raise (Invalid_argument "can't extract a float from a bool")
+exception Cast_error
 
-let of_float : float -> t = fun f -> Real f
+let to_num : t -> Number.t = function
+  | Number n -> n
+  | _ -> raise Cast_error
 
 let to_bool : t -> bool = function
-  | Bool b -> b
-  | _ -> raise (Invalid_argument "can't extract a bool from a float")
+  | Boolean b -> b
+  | _ -> raise Cast_error
 
-let of_bool : bool -> t = fun b -> Bool b
+let of_num : Number.t -> t = fun n -> Number n
 
-(* alias for model *)
+let of_rational : Rational.t -> t = fun q -> Number (Rational.to_float q)
+
+let of_bool : bool -> t = fun n -> Boolean n
+
+let to_string : t -> string = function
+  | Number n -> Number.to_string n
+  | Boolean b -> if b then "true" else "false"
+
+(* alias for the following modules *)
 type t_alias = t
+
+(* for representing uninterpreted functions and indexed variables *)
+module FiniteMap = struct
+  module ValueMap = CCMap.Make(struct type t = t_alias let compare = Pervasives.compare end)
+
+  type t = t_alias ValueMap.t
+
+  let get = ValueMap.get
+
+  let of_list = ValueMap.of_list
+
+  let to_string : t -> string = fun m -> m
+    |> ValueMap.to_list
+    |> CCList.map (fun (k, v) -> (to_string k) ^ " => " ^ (to_string v))
+    |> CCString.concat ", "
+    |> fun s -> "{" ^ s ^ "}"
+end
 
 (* a model just maps constants to values/finite maps *)
 module Model = struct
@@ -50,22 +56,31 @@ module Model = struct
 
   exception Binding_error
 
-  type value = 
-    | Base of t_alias
-    | Indexed of FiniteMap.t
+  type entry =
+    | Concrete of t_alias
+    | Map of FiniteMap.t
 
-  type t = value NameMap.t
+  let entry_to_string : entry -> string = function
+    | Concrete v -> to_string v
+    | Map m -> FiniteMap.to_string m
 
-  let get (n : Name.t) (m : t) : value = match NameMap.get n m with
-    | Some v -> v
-    | None -> raise (Invalid_argument "value not bound!")
+  let to_value : entry -> t_alias = function
+    | Concrete x -> x
+    | _ -> raise Cast_error
 
-  (* casting to the types of values with failure *)
-  let value_to_base : value -> t_alias = function
-    | Base b -> b
-    | _ -> raise Binding_error
+  let to_map : entry -> FiniteMap.t = function
+    | Map m -> m
+    | _ -> raise Cast_error
 
-  let value_to_map : value -> FiniteMap.t = function
-    | Indexed m -> m
-    | _ -> raise Binding_error
+  type t = entry NameMap.t
+
+  let get = NameMap.get
+
+  let of_list = NameMap.of_list
+
+  let to_string : t -> string = fun m -> m
+    |> NameMap.to_list
+    |> CCList.map (fun (k, v) -> (Name.to_string k) ^ " => " ^ (entry_to_string v))
+    |> CCString.concat ", "
+    |> fun s -> "{" ^ s ^ "}"
 end

@@ -7,6 +7,11 @@ let to_string : t -> string = function
 let to_float : t -> float = function
   Q (n, d) -> (float_of_int n) /. (float_of_int d)
 
+let of_ratio : Ratio.ratio -> t = fun r ->
+  let n = Big_int.int_of_big_int (Ratio.numerator_ratio r) in
+  let d = Big_int.int_of_big_int (Ratio.denominator_ratio r) in
+    Q (n, d)
+
 (* simple operations work just as you'd expect *)
 let add (l : t) (r : t) : t = match l, r with
   Q (a, b), Q (c, d) -> Q (a * d + c * b, b * d)

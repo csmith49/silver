@@ -175,3 +175,16 @@ let global_context : A.t -> E.t option = fun ast -> ast
     (Some E.empty)
     (CCList.sort_uniq Name.compare (variables ast))
   )
+
+(* for expressions only *)
+let expression_context : A.expr -> E.t option = fun ex -> ex
+  |> type_constraints
+  |> snd
+  |> C.resolve
+  >>= (fun sub ->
+    CCList.fold_left (fun e -> fun v ->
+      let t = S.get (v <+ "type") sub in
+        CCOpt.map2 (E.update v) t e)
+    (Some E.empty)
+    (CCList.sort_uniq Name.compare (vars_in_expr ex))
+  )

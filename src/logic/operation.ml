@@ -43,7 +43,7 @@ module Defaults = struct
     name = Name.of_string "Negative";
     symbol = "-";
     signature = f [rational] rational;
-    value_encoding = lift_unary (Value.of_float % (fun f -> f *. -1.0) % Value.to_float);
+    value_encoding = lift_unary (Value.of_num % (fun f -> f *. -1.0) % Value.to_num);
     solver_encoding = lift_unary S.Expr.negative;
   }
   let unary = [not_; negative]
@@ -54,7 +54,7 @@ module Defaults = struct
     symbol = "+";
     signature = f [rational ; rational] rational;
     value_encoding = lift_binary (fun v -> fun w -> 
-      Value.of_float ((Value.to_float v) +. (Value.to_float w)));
+      Value.of_num ((Value.to_num v) +. (Value.to_num w)));
     solver_encoding = lift_binary S.Expr.plus;
   }
   let mult = {
@@ -62,7 +62,7 @@ module Defaults = struct
     symbol = "*";
     signature = f [rational ; rational] rational;
     value_encoding = lift_binary (fun v -> fun w ->
-      Value.of_float ((Value.to_float v) *. (Value.to_float w)));
+      Value.of_num ((Value.to_num v) *. (Value.to_num w)));
     solver_encoding = lift_binary S.Expr.mult;
   }
   let div = {
@@ -70,7 +70,7 @@ module Defaults = struct
     symbol = "/";
     signature = f [rational ; rational] rational;
     value_encoding = lift_binary (fun v -> fun w ->
-      Value.of_float ((Value.to_float v) /. (Value.to_float w)));
+      Value.of_num ((Value.to_num v) /. (Value.to_num w)));
     solver_encoding = lift_binary S.Expr.div;
   }
   let minus = {
@@ -78,7 +78,7 @@ module Defaults = struct
     symbol = "-";
     signature = f [rational ; rational] rational;
     value_encoding = lift_binary (fun v -> fun w ->
-      Value.of_float ((Value.to_float v) -. (Value.to_float w)));
+      Value.of_num ((Value.to_num v) -. (Value.to_num w)));
     solver_encoding = lift_binary S.Expr.minus;
   }
   let arithmetic = [plus; mult; div; minus]
@@ -89,7 +89,7 @@ module Defaults = struct
     symbol = "==";
     signature = f [rational ; rational] boolean;
     value_encoding = lift_binary (fun v -> fun w ->
-      Value.of_bool ((Value.to_float v) = (Value.to_float w)));
+      Value.of_bool ((Value.to_num v) = (Value.to_num w)));
     solver_encoding = lift_binary S.Expr.eq;
   }
   let neq = {
@@ -97,7 +97,7 @@ module Defaults = struct
     symbol = "!=";
     signature = f [rational ; rational] boolean;
     value_encoding = lift_binary (fun v -> fun w ->
-      Value.of_bool ((Value.to_float v) != (Value.to_float w)));
+      Value.of_bool ((Value.to_num v) != (Value.to_num w)));
     solver_encoding = lift_binary S.Expr.neq;
   }
   let leq = {
@@ -105,7 +105,7 @@ module Defaults = struct
     symbol = "<=";
     signature = f [rational ; rational] boolean;
     value_encoding = lift_binary (fun v -> fun w ->
-      Value.of_bool ((Value.to_float v) <= (Value.to_float w)));
+      Value.of_bool ((Value.to_num v) <= (Value.to_num w)));
     solver_encoding = lift_binary S.Expr.leq;
   }
   let geq = {
@@ -113,7 +113,7 @@ module Defaults = struct
     symbol = ">=";
     signature = f [rational ; rational] boolean;
     value_encoding = lift_binary (fun v -> fun w ->
-      Value.of_bool ((Value.to_float v) >= (Value.to_float w)));
+      Value.of_bool ((Value.to_num v) >= (Value.to_num w)));
     solver_encoding = lift_binary S.Expr.geq;
   }
   let lt = {
@@ -121,7 +121,7 @@ module Defaults = struct
     symbol = "<";
     signature = f [rational ; rational] boolean;
     value_encoding = lift_binary (fun v -> fun w ->
-      Value.of_bool ((Value.to_float v) < (Value.to_float w)));
+      Value.of_bool ((Value.to_num v) < (Value.to_num w)));
     solver_encoding = lift_binary S.Expr.lt;
   }
   let gt = {
@@ -129,7 +129,7 @@ module Defaults = struct
     symbol = ">";
     signature = f [rational ; rational] boolean;
     value_encoding = lift_binary (fun v -> fun w ->
-      Value.of_bool ((Value.to_float v) > (Value.to_float w)));
+      Value.of_bool ((Value.to_num v) > (Value.to_num w)));
     solver_encoding = lift_binary S.Expr.gt;
   }
   let comparisons = [eq; neq; leq; geq; lt; gt]
