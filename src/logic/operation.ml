@@ -158,13 +158,25 @@ module Defaults = struct
     name = Name.of_string "lap";
     symbol = "lap";
     signature = f [rational] rational;
-    value_encoding = lift_unary (fun x -> raise Encoding_error);
+    value_encoding = lift_unary (fun x -> x);
     solver_encoding = fun xs -> raise Encoding_error;
   }
   let distributions = [lap]
 
+  (* and the annoying ones we have to deal with *)
+  let log = {
+    name = Name.of_string "log";
+    symbol = "log";
+    signature = f [rational] rational;
+    value_encoding = lift_unary (fun v -> Value.of_num (log (Value.to_num v)));
+    solver_encoding =
+      let uif = S.F.mk "log" [S.Sort.rational] S.Sort.rational in
+        fun xs -> S.F.apply uif xs;
+  }
+  let complicated = [log]
+
   (* all the defined functions *)
-  let defined = unary @ arithmetic @ comparisons @ logical @ distributions
+  let defined = unary @ arithmetic @ comparisons @ logical @ distributions @ complicated
 end
 
 (* and a method to find ones with matching names *)

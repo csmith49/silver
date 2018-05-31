@@ -19,6 +19,11 @@ module Make = functor (K : KEY) -> struct
   (* constructing states *)
   let init : 'v state = KMap.empty
 
+  let singleton : K.t -> 'v -> 'v state = fun k -> fun v -> KMap.singleton k [v]
+
+  let merge_states (l : 'v state) (r : 'v state) : 'v state =
+    KMap.merge (fun _ -> fun lv -> fun rv -> (CCOpt.map2 (@)) lv rv) l r
+
   (* getting from the state is a bit trickier, due to defaults *)
   let get : K.t -> 'v state -> 'v list = KMap.get_or ~default:[]
 

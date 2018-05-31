@@ -3,6 +3,7 @@ open Graph
 
 open Synth
 open Encoding
+open Theory
 
 (* global state and whatnot *)
 let filename = ref "";;
