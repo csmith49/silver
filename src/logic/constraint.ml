@@ -62,3 +62,22 @@ let check : conjunction -> Answer.t = fun cs ->
     | S.Answer.Sat m -> Answer.Sat (convert_model m)
     | S.Answer.Unsat -> Answer.Unsat
     | S.Answer.Unknown -> Answer.Unknown
+
+(* the payoff *)
+let check_wrt_theory (c : Types.Environment.t) : Theory.t -> conjunction -> Answer.t = 
+  fun theory -> fun cs -> match check cs with
+    (* we have to check if we know we know *)
+    | Answer.Sat model ->
+      (* if the model is consistent with an actual evaluation, it's really a model *)
+      let values = cs
+        |> CCList.map (fun c -> c.expression)
+        |> CCList.map (Evaluation.evaluate model) in
+      if CCList.for_all (fun v -> v = (Value.of_bool true)) values then
+        Answer.Sat model
+      (* if not, we need to add some more info about the functions in the theory *)
+      else let axioms = cs
+        |> CCList.map (fun c -> c.expression)
+        |> CCList.flat_map (Theory.concretize c theory)
+        |> CCList.map (of_expr c) in
+      check (cs @ axioms)
+    | _ as answer -> answer

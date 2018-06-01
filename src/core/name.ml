@@ -36,6 +36,7 @@ let extend_by_name (l : t) (r : t) : t = { l with
 (* as another axis where we can make things unique, we have counters/subscripts *)
 let set_counter (n : t) : int -> t = fun c -> { n with counter = c }
 let reset_counter (n : t) : t = { n with counter = 0 }
+let counter (n : t) : int = n.counter
 
 (* alternative syntax makes names slightly easier to work with - just import when relevant *)
 module Infix = struct

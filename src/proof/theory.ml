@@ -61,3 +61,9 @@ let concretize (c : Types.Environment.t) : t -> AST.expr -> AST.expr list = fun 
   let terms = extract_terms c e in
   let derivations = G.derive terms theory in
     G.get start derivations
+
+module Defaults = struct
+  let log = [
+    axiom_of_string "log(rat) > 0";
+  ]
+end

@@ -85,6 +85,9 @@ module Environment = struct
   (* simplest non-trivial construction *)
   let singleton (x : Name.t) (b : t_alias) : t = NameMap.singleton x b
 
+  (* more complicated non-trivial construction *)
+  let of_list = NameMap.of_list
+
   (* for checking constraints *)
   let get_type (x : Name.t) (env : t) : t_alias option =
     NameMap.get x env

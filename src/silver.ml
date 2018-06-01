@@ -1,27 +1,8 @@
-open Static
-open Graph
+(* we'll need this eventually, but this is just to make sure it's included in the build process for now *)
+open Trace
 
-open Synth
-open Encoding
-open Theory
-
-(* global state and whatnot *)
-let filename = ref "";;
-let expression = ref "";;
-
-(* command line flags *)
-let args = [
-  ("-f", Arg.Set_string filename, "tbd");
-  ("-e", Arg.Set_string expression, "tbd")
-];;
-let anon_fun = fun x -> ();;
-let usage_msg = "tbd";;
-
-(* parsing with errors present *)
-
-
-(* the main entry point *)
-Arg.parse args anon_fun usage_msg;
+(* get the cmd line args *)
+let _ = Global.get_args ();
 
 (* let's do some parsing *)
 (* load the file into a lexing buffer *)
@@ -32,15 +13,15 @@ let automata = Program.of_ast p in
 print_endline (Program.summary automata);
 print_endline (("int", "lap(float) + int") |> Synth.mk |> pattern_to_string); *)
 
-if !expression != "" then
+if !Global.expression != "" then
   let _ = print_endline "Parsing expression..." in
-  let e = Utility.parse_expr !expression in
+  let e = Utility.parse_expr !Global.expression in
   let _ = print_endline ("\tExpression: " ^ (AST.expr_to_string e)) in
   let c = CCOpt.get_exn (Static.expression_context e) in
   let _ = print_endline ("\tContext: " ^ (Types.Environment.to_string c)) in
   let _ = print_endline ("Checking SAT...") in
   let f = Constraint.of_expr c e in
-  let answer = Constraint.check [f] in
+  let answer = Constraint.check_wrt_theory c Theory.Defaults.log [f] in
   let _ = print_endline ("\tResult: " ^ (Constraint.Answer.to_string answer)) in
   ()
 
