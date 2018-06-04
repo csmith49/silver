@@ -109,3 +109,29 @@ let rec to_string : t -> string = function
   | Block bs ->
     let bs' = CCList.map to_string bs in
       "Block(" ^ (CCString.concat ", " bs') ^ ")"
+
+module Infix = struct
+  let ( =. ) (l : expr) (r : expr) : expr =
+    BinaryOp (Operation.Defaults.eq, l, r)
+
+  let ( !. ) (e : expr) : expr =
+    UnaryOp (Operation.Defaults.not_, e)
+  
+  let ( &. ) (l : expr) (r : expr) : expr =
+    BinaryOp (Operation.Defaults.and_, l, r)
+
+  let ( |. ) (l : expr) (r : expr) : expr =
+    BinaryOp (Operation.Defaults.or_, l, r)
+
+  let ( +. ) (l : expr) (r : expr) : expr =
+    BinaryOp (Operation.Defaults.plus, l, r)
+
+  let ( =>. ) (l : expr) (r : expr) : expr =
+    BinaryOp (Operation.Defaults.implies, l, r)
+
+  let ( <= ) (l : expr) (r : expr) : expr =
+    BinaryOp (Operation.Defaults.leq, l, r)
+
+  let ( >= ) (l : expr) (r : expr) : expr =
+    BinaryOp (Operation.Defaults.geq, l, r)
+end

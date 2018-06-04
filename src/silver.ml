@@ -6,14 +6,20 @@ let _ = Global.get_args ();
 
 (* let's do some parsing *)
 (* load the file into a lexing buffer *)
-(* let prog = Utility.parse !filename in
+let prog = Utility.parse !Global.filename in
 let pre, p, post = prog in
+let env = Static.global_context p |> CCOpt.get_exn in
 let automata = Program.of_ast p in
 
+print_endline "Automata summary:";
 print_endline (Program.summary automata);
-print_endline (("int", "lap(float) + int") |> Synth.mk |> pattern_to_string); *)
 
-if !Global.expression != "" then
+print_endline "Traces:";
+let trace = Automata.get_word automata |> CCOpt.get_exn |> Trace.of_path env in
+let encodings = Trace.encode Trace.vars_in_scope Probability.Laplace.all trace in
+CCList.iter (fun e -> print_endline (Trace.encoding_to_string e)) encodings;
+
+(* if !Global.expression != "" then
   let _ = print_endline "Parsing expression..." in
   let e = Utility.parse_expr !Global.expression in
   let _ = print_endline ("\tExpression: " ^ (AST.expr_to_string e)) in
@@ -25,4 +31,4 @@ if !Global.expression != "" then
   let _ = print_endline ("\tResult: " ^ (Constraint.Answer.to_string answer)) in
   ()
 
-else ();
+else (); *)

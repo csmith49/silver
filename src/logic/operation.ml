@@ -151,7 +151,17 @@ module Defaults = struct
       Value.of_bool ((Value.to_bool v) || (Value.to_bool w)));
     solver_encoding = lift_binary S.Expr.or_;
   }
-  let logical = [and_; or_]
+  let implies = {
+    name = Name.of_string "Implies";
+    symbol = "=>";
+    signature = f [boolean; boolean] boolean;
+    value_encoding = lift_binary (fun v -> fun w ->
+      let v' = Value.to_bool v in
+      let w' = Value.to_bool w in
+      Value.of_bool (not v' || w'));
+    solver_encoding = lift_binary S.Expr.implies;
+  }
+  let logical = [and_; or_; implies]
 
   (* distributions *)
   let lap = {
