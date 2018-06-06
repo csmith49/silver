@@ -77,30 +77,71 @@ end
 module Environment = struct
   module NameMap = CCMap.Make(Name)
   
-  type t = t_alias NameMap.t
+  module Counter = struct
+    type t = int NameMap.t
+
+    (* not actually "empty" -- see get *)
+    let init : t = NameMap.empty
+
+    (* get and increment *)
+    let get : Name.t -> t -> int = fun n -> NameMap.get_or ~default:0 (Name.reset_counter n)
+
+    let increment: Name.t -> t -> t = fun n -> fun c ->
+      let curr = get n c in NameMap.add (Name.reset_counter n) (curr + 1) c
+  end
+
+  type t = {
+    types : t_alias NameMap.t;
+    counters : Counter.t;
+  }
 
   (* simplest trivial construction *)
-  let empty : t = NameMap.empty
+  let empty : t = {
+    types = NameMap.empty;
+    counters = Counter.init;
+  }
 
   (* simplest non-trivial construction *)
-  let singleton (x : Name.t) (b : t_alias) : t = NameMap.singleton x b
+  let singleton (x : Name.t) (b : t_alias) : t = {
+    types = NameMap.singleton x b;
+    counters = Counter.init;
+  }
 
   (* more complicated non-trivial construction *)
-  let of_list = NameMap.of_list
+  let of_list : (Name.t * t_alias) list -> t = fun ls -> {
+    types = NameMap.of_list ls;
+    counters = Counter.init;
+  }
 
   (* for checking constraints *)
   let get_type (x : Name.t) (env : t) : t_alias option =
-    NameMap.get x env
+    NameMap.get (Name.reset_counter x) env.types
+
+  let get_counter (x : Name.t) (env : t) : int =
+    Counter.get x env.counters
+
+  (* picking out some useful things from counter *)
+  let increment : Name.t -> t -> t = fun n -> fun env -> 
+    {env with counters = Counter.increment n env.counters}
+  
+  (* picking out the "live" variables *)
+  let live_variables : t -> Name.t list = fun env -> env.types
+    |> NameMap.to_list
+    |> CCList.map fst
+    |> CCList.map (fun x -> (x, Counter.get x env.counters))
+    |> CCList.map (fun (x, i) -> Name.set_counter x i)
 
   (* for printing *)
   let to_string  (env : t) : string = 
     let env' = env
-      |> NameMap.to_list
+      |> live_variables
+      |> CCList.map (fun x -> (x, get_type x env |> CCOpt.get_exn))
       |> CCList.map (fun (k, v) -> (Name.to_string k) ^ " : " ^ (to_string v))
       |> CCString.concat ", "
     in "[" ^ env' ^ "]"
 
-  let update (x : Name.t) (b : t_alias) (env : t) : t = NameMap.add x b env
+  let update (x : Name.t) (b : t_alias) (env : t) : t = 
+    {env with types = NameMap.add x b env.types}
 end
 
 let rec unify (l : t) (r : t) : Sub.t option =
