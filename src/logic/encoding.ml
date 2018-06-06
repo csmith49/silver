@@ -26,7 +26,7 @@ and encode_literal : AST.lit -> S.Expr.t = function
 and encode_identifier (c : Types.Environment.t) : AST.id -> S.Expr.t = function
   | AST.Var n -> begin match Types.Environment.get_type n c with
       | Some t -> S.Expr.variable (Name.to_string n) (type_to_sort t)
-      | _ -> raise (Encoding_error "type not found")
+      | _ -> raise (Encoding_error ("no type for " ^ (Name.to_string n)))
     end
   | AST.IndexedVar (n, e) -> begin match Types.Environment.get_type n c with
       | Some (Types.Indexed (dom, codom)) ->
@@ -41,6 +41,7 @@ and encode_identifier (c : Types.Environment.t) : AST.id -> S.Expr.t = function
 open AST.Infix
 let ast_of_int i = AST.Literal (AST.Rational (Rational.Q (i, 1)))
 
+(* this is incorrect *)
 let encode_annotation (c : Types.Environment.t) : AST.annotation -> S.Expr.t = function
   | AST.Simple e -> encode c e
   | AST.Quantified (q, n, d, e) ->

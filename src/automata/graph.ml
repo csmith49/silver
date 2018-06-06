@@ -78,18 +78,19 @@ let extend_path (p : ('v, 'e) Path.t) (g : ('v, 'e) t) : ('v, 'e) Path.t list = 
 (* paths with loops are dropped *)
 let bfs (source : 'v list) (dest : 'v list) (g : ('v, 'e) t) : ('v, 'e) Path.t option =
   (* we use a recursive auxillary function that maintains paths *)
-  let rec aux : ('v, 'e) Path.t list -> ('v, 'e) Path.t option = fun ps -> 
-    (* extend the existing paths and find those that are loop free *)
-    let loop_free_paths = ps
-      |> CCList.flat_map (fun p -> extend_path p g)
-      |> CCList.filter (fun p -> not (Path.has_loop p)) in
-    (* a predicate to determine if a path can reach the dest *)
-    let reaches_dest : ('v, 'e) Path.t -> bool = fun p -> p
+  let rec aux : ('v, 'e) Path.t list -> ('v, 'e) Path.t option = fun ps ->
+    (* find if anything is currently reaching the destination *)
+    let reaches_dest: ('v, 'e) Path.t -> bool = fun p -> p
       |> Path.to_states |> CCList.last_opt |> CCOpt.exists (fun n -> List.mem n dest) in
-    (* if any path reaches dest, return, otherwise maybe recurse *)
-    match CCList.find_opt reaches_dest loop_free_paths with
+    match CCList.find_opt reaches_dest ps with
       | Some p -> Some p
-      | None -> if CCList.is_empty loop_free_paths then None else aux loop_free_paths in
+      | None ->
+        (* extend the paths and filter those with loops *)
+        let loop_free_paths = ps
+          |> CCList.flat_map (fun p -> extend_path p g)
+          |> CCList.filter (fun p -> not (Path.has_loop p)) in
+        (* maybe recurse *)
+        if CCList.is_empty loop_free_paths then None else aux loop_free_paths in
   (* generate the initial paths from source *)
   let init_paths = source |> CCList.flat_map (fun n -> step n g) |> CCList.map Path.of_step in
     (* and do the thing *)

@@ -114,9 +114,10 @@ end
 
 (* here's a big one - we need to convert to a formula capturing the semantics *)
 (* there's a lot of ways to do this, so we have to parameterize by probability axioms and theories *)
-type encoding = AST.expr list
+type encoding = Constraint.t list
 
 let encoding_to_string : encoding -> string = fun e -> e
+  |> CCList.map (fun e -> e.Constraint.expression)
   |> CCList.map AST.expr_to_string
   |> CCString.concat " & "
 
@@ -126,7 +127,7 @@ open AST.Infix
 let encode_step 
   (strat : strategy) 
   (axioms : Probability.axiom list) 
-  (i : int) : step -> AST.expr list * strategy = fun s -> 
+  (i : int) : step -> Constraint.t list * strategy = fun s -> 
     match s.step with (src, label, dest) -> match label with
       (* x = e & w = wp & h = hp *)
       | E.Assign (x, e) -> 
@@ -135,7 +136,8 @@ let encode_step
           ((AST.Identifier x) =. e) &. 
           ((Vars.w i) =. (Vars.w (i - 1))) &. 
           ((Vars.h i) =. (Vars.h (i - 1))) in
-        ([enc], strat)
+        let env = Vars.extend i s.live_vars in
+          ([Constraint.of_expr env enc], strat)
     (* (w = wp) & ((h = hp) | !b) *)
     | E.Assume b -> 
       let _, strat = apply strat s in
@@ -144,7 +146,8 @@ let encode_step
         (
           ((Vars.h i) =. (Vars.h (i - 1))) |. (!. b)
         ) in
-      ([enc], strat)
+      let env = Vars.extend i s.live_vars in
+        ([Constraint.of_expr env enc], strat)
     | E.Draw (x, e) ->
       (* s & w = wp + c & h = hp *)
       let f = fun (s, c) -> s &. 
@@ -152,20 +155,23 @@ let encode_step
         ((Vars.h i) =. (Vars.h (i - 1))) in 
       let terms, strategy = apply strat s in
       let to_pair c t = c.Probability.semantics t, c.Probability.cost t in
+      let env = Vars.extend i s.live_vars in
       let interps = axioms
         |> CCList.filter_map (Probability.concretize (AST.Identifier x) e)
         |> CCList.flat_map (fun c -> CCList.map (fun t -> to_pair c t) terms)
-        |> CCList.map f in
+        |> CCList.map f 
+        |> CCList.map (Constraint.of_expr env) in
       (interps, strat)
 
-
 (* and now we can encode the entire thing - note we don't quite need pre and post condition here too *)
-let encode (strat : strategy) (axioms : Probability.axiom list) : t -> encoding list =
+let encode (env : Types.Environment.t) (strat : strategy) (axioms : Probability.axiom list) : t -> encoding list =
   let rec aux ?(index=1) strat axioms = function
     | [] -> []
     | step :: rest -> let encodings, strat = encode_step strat axioms index step in
       encodings :: (aux ~index:(index + 1) strat axioms rest)
-  in fun t -> CCList.cartesian_product (aux strat axioms t)
+  in fun t -> t
+    |> aux strat axioms
+    |> CCList.cartesian_product
 
 (* a default strategy *)
 let rec vars_in_scope : strategy = Strategy (

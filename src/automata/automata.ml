@@ -64,4 +64,4 @@ let summary (np : 's -> string) (ep : 'e -> string) (a : ('s, 'e) t) : string =
   let acc' =
     CCString.concat "\n\t" ("Accepting:" :: (CCList.map np a.accepting)) in
   let divider = "<==================================>" in
-  CCString.concat "\n" (start' :: acc' :: divider :: (CCList.map local_view a.states))
+  CCString.concat "\n" (start' :: acc' :: divider :: (CCList.map local_view a.states) @ [divider])

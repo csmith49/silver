@@ -5,7 +5,10 @@ end
 
 (* nodes contain the relevant annotations, or possibly a list of annotations *)
 module Node = struct
-  type t = Annotation
+  type t = {
+    annotation : AST.expr;
+    cost : AST.expr;
+  }
   type conjunction = t list
 end
 
