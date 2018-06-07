@@ -163,6 +163,26 @@ module Defaults = struct
   }
   let logical = [and_; or_; implies]
 
+  let exists = {
+    name = Name.of_string "exists";
+    symbol = "Exists";
+    signature = f [rational; boolean] boolean;
+    value_encoding = lift_unary (fun _ -> raise Encoding_error);
+    solver_encoding = fun xs -> match xs with
+      | [n; e] -> S.Quantifier.exists n e;
+      | _ -> raise Encoding_error;
+  }
+  let forall = {
+    name = Name.of_string "forall";
+    symbol = "ForAll";
+    signature = f [rational; boolean] boolean;
+    value_encoding = lift_unary (fun _ -> raise Encoding_error);
+    solver_encoding = fun xs -> match xs with
+      | [n; e] -> S.Quantifier.forall n e;
+      | _ -> raise Encoding_error;
+  }
+  let quantifiers = [exists; forall]
+
   (* distributions *)
   let lap = {
     name = Name.of_string "lap";

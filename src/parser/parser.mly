@@ -28,7 +28,7 @@
 /* assignments and some control flow */
 %token SEMICOLON PERIOD
 %token ASSIGN DRAW COMMA
-%token WHILE IF THEN ELSE IN
+%token WHILE IF THEN ELSE
 %nonassoc THEN
 %nonassoc ELSE
 
@@ -56,7 +56,6 @@ statement:
   | e = while_statement {e}
   | e = block_statement {e}
   | e = assignment_statement {e}
-
 
 assignment_statement:
   | x = identifier; ASSIGN; e = expression; SEMICOLON { AST.Assign (x, e) }
@@ -132,11 +131,10 @@ annotation:
   | xs = delimited(LEFT_DOUBLE_BRACE, quantified_expression, RIGHT_DOUBLE_BRACE) { xs }
 
 quantified_expression:
-  | q = quantifier; i = NAME; IN; d = domain; PERIOD; e = expression { AST.Quantified (q, i, d, e) }
-  | e = expression { AST.Simple e }
-
-domain:
-  | LEFT_BRACKET; l = expression; PERIOD; PERIOD; r = expression; RIGHT_BRACKET { AST.Range (l, r) }
+  | q = quantifier; i = NAME; PERIOD; e = expression { match q with
+    | AST.Exists -> AST.FunCall (Operation.Defaults.exists, [AST.Identifier (AST.Var i); e])
+    | AST.ForAll -> AST.FunCall (Operation.Defaults.forall, [AST.Identifier (AST.Var i); e])}
+  | e = expression { e }
 
 %inline quantifier:
   | EXISTS { AST.Exists }

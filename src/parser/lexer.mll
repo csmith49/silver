@@ -46,7 +46,6 @@ rule read = parse
   | "if" {IF}
   | "then" {THEN}
   | "else" {ELSE}
-  | "in" {IN}
   | "for" {FORALL}
   | "exists" {EXISTS}
   | '.' {PERIOD}

@@ -109,6 +109,10 @@ module Make = functor (C : CONTEXT) -> struct
       | Sat of Model.t
       | Unsat
       | Unknown
+
+    let is_unsat : t -> bool = function
+      | Unsat -> true
+      | _ -> false
   end
 
   module Solver = struct
@@ -125,6 +129,24 @@ module Make = functor (C : CONTEXT) -> struct
       | Z3.Solver.UNSATISFIABLE -> Answer.Unsat
       | Z3.Solver.UNKNOWN -> Answer.Unknown
       | Z3.Solver.SATISFIABLE -> Answer.Sat (CCOpt.get_exn @@ Z3.Solver.get_model s)
+  end
+
+  module Quantifier = struct
+    let forall (x : Expr.t) (body : Expr.t) : Expr.t = 
+      Z3.Quantifier.mk_forall_const 
+        C.context 
+        [x] 
+        body 
+        None [] [] None None 
+      |> Z3.Quantifier.expr_of_quantifier
+
+    let exists (x : Expr.t) (body : Expr.t) : Expr.t =
+      Z3.Quantifier.mk_exists_const
+        C.context
+        [x]
+        body
+        None [] [] None None
+      |> Z3.Quantifier.expr_of_quantifier
   end
 end
 

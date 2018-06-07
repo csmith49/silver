@@ -35,23 +35,3 @@ and encode_identifier (c : Types.Environment.t) : AST.id -> S.Expr.t = function
           S.F.apply f [e']
       | _ -> raise (Encoding_error "indexed type not found")
     end
-
-
-(* we also need to be able to encode pre and post conditions *)
-open AST.Infix
-let ast_of_int i = AST.Literal (AST.Rational (Rational.Q (i, 1)))
-
-(* this is incorrect *)
-let encode_annotation (c : Types.Environment.t) : AST.annotation -> S.Expr.t = function
-  | AST.Simple e -> encode c e
-  | AST.Quantified (q, n, d, e) ->
-    let n' = AST.Identifier (AST.Var n) in
-    let lower, upper = match d with
-      | AST.Range (l, u) -> l, u in
-    match q with
-      | AST.ForAll ->
-        let expr = ((n' <= upper) &. (n' >= lower)) =>. e in
-          encode c expr
-      | AST.Exists ->
-        let expr = !.(((n' <= upper) &. (n' >= lower)) =>. (!. e)) in
-          encode c expr

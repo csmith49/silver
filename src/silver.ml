@@ -1,5 +1,5 @@
 (* we'll need this eventually, but this is just to make sure it's included in the build process for now *)
-open Trace
+open Check
 
 (* get the cmd line args *)
 let _ = Global.get_args ();

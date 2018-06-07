@@ -48,6 +48,10 @@ module Answer = struct
     | Sat m -> "SAT: " ^ (Value.Model.to_string m)
     | Unsat -> "UNSAT"
     | Unknown -> "UNKNOWN"
+
+  let is_unsat : t -> bool = function
+    | Unsat -> true
+    | _ -> false
 end
 
 let check : conjunction -> Answer.t = fun cs ->

@@ -13,6 +13,8 @@ and lit =
   | Rational of Rational.t
   | Boolean of bool
 
+type annotation = expr
+
 type t =
   | Assign of id * expr
   | Draw of id * expr
@@ -23,11 +25,6 @@ type t =
 type quantifier =
   | Exists
   | ForAll
-type domain =
-  | Range of expr * expr
-type annotation =
-  | Simple of expr
-  | Quantified of quantifier * Name.t * domain * expr 
 
 type program = annotation * t * annotation
 
@@ -71,22 +68,10 @@ and expr_to_string : expr -> string = function
     let es' = CCList.map expr_to_string es in
       f' ^ "(" ^ (CCString.concat ", " es') ^ ")"
 
-let rec annotation_to_string : annotation -> string = function
-  | Simple e -> "Simple(" ^ (expr_to_string e) ^ ")"
-  | Quantified (q, i, d, e) ->
-    let q' = quantifier_to_string q in
-    let i' = Name.to_string i in
-    let d' = domain_to_string d in
-    let e' = expr_to_string e in
-      "Quantified(" ^ q' ^ ", " ^ i' ^ ", " ^ d' ^ ", " ^ e' ^ ")"
+
 and quantifier_to_string : quantifier -> string = function
   | Exists -> "Exists"
   | ForAll -> "ForAll"
-and domain_to_string : domain -> string = function
-  | Range (l, r) ->
-    let l' = expr_to_string l in
-    let r' = expr_to_string r in
-      "Range(" ^ l' ^ ", " ^ r' ^ ")"
 
 let rec to_string : t -> string = function
   | Assign (n, e) ->
@@ -134,4 +119,16 @@ module Infix = struct
 
   let ( >= ) (l : expr) (r : expr) : expr =
     BinaryOp (Operation.Defaults.geq, l, r)
+
+  let var : string -> expr = fun s ->
+    Identifier (Var (Name.of_string s))
+
+  let var_i : (string * int) -> expr = fun (s, i) ->
+    Identifier (Var (Name.set_counter (Name.of_string s) i))
+
+  let int : int -> expr = fun i ->
+    Literal (Rational (Rational.Q (i, 1)))
+
+  let bool : bool -> expr = fun b ->
+    Literal (Boolean b)
 end
