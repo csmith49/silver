@@ -38,6 +38,7 @@ rule read = parse
   | '|' {OR}
   | '!' {NOT}
   | "==" {EQ}
+  | "=>" {IMPLIES}
   | "<=" {LEQ}
   | ">=" {GEQ}
   | '<' {LT}

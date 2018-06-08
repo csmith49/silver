@@ -79,6 +79,8 @@ module Make = functor (C : CONTEXT) -> struct
   module Model = struct
     type t = Z3.Model.model
 
+    exception Model_error of string
+
     let constant_declarations : t -> F.t list = Z3.Model.get_const_decls
     let function_declarations : t -> F.t list = Z3.Model.get_func_decls
 
@@ -92,13 +94,17 @@ module Make = functor (C : CONTEXT) -> struct
 
     let get_constant : t -> Symbol.t -> Expr.t = fun m -> fun s ->
       let decl = constant_declarations m |> CCList.filter (fun d -> (F.symbol d) = s) |> CCList.hd in
-        CCOpt.get_exn (Z3.Model.get_const_interp m decl)
+      match Z3.Model.get_const_interp m decl with
+        | Some result -> result
+        | None -> raise (Model_error ("Constant symbol " ^ (Symbol.to_string s) ^ " not bound."))
 
     type entry = Expr.t list * Expr.t
 
     let get_function : t -> Symbol.t -> entry list = fun m -> fun s ->
       let decl = function_declarations m |> CCList.filter (fun d -> (F.symbol d) = s) |> CCList.hd in
-      let interp = CCOpt.get_exn (Z3.Model.get_func_interp m decl) in
+      let interp = match Z3.Model.get_func_interp m decl with
+        | Some result -> result
+        | None -> raise (Model_error ("Function symbol " ^ (Symbol.to_string s) ^ " not bound.")) in
       let get_entry = 
         fun e -> (Z3.Model.FuncInterp.FuncEntry.get_args e, Z3.Model.FuncInterp.FuncEntry.get_value e) in
           CCList.map get_entry (Z3.Model.FuncInterp.get_entries interp)
@@ -118,6 +124,8 @@ module Make = functor (C : CONTEXT) -> struct
   module Solver = struct
     type t = Z3.Solver.solver
 
+    exception Solver_error
+
     let make : unit -> t = fun _ -> Z3.Solver.mk_simple_solver C.context
 
     let add (solver : t) (e : Expr.t) = Z3.Solver.add solver [e]
@@ -128,7 +136,9 @@ module Make = functor (C : CONTEXT) -> struct
     let check : t -> Answer.t = fun s -> match Z3.Solver.check s [] with
       | Z3.Solver.UNSATISFIABLE -> Answer.Unsat
       | Z3.Solver.UNKNOWN -> Answer.Unknown
-      | Z3.Solver.SATISFIABLE -> Answer.Sat (CCOpt.get_exn @@ Z3.Solver.get_model s)
+      | Z3.Solver.SATISFIABLE -> Answer.Sat (match Z3.Solver.get_model s with
+          | Some model -> model
+          | None -> raise Solver_error)
   end
 
   module Quantifier = struct

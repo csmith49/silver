@@ -165,16 +165,20 @@ let rec global_constraints : A.t -> C.t = function
     let ec = global_constraints e in
       (bt =:= boolean) <&> ec <&> bc
 
-let global_context : A.t -> E.t option = fun ast -> ast
-  |> global_constraints
-  |> C.resolve
-  >>= (fun sub ->
-    CCList.fold_left (fun e -> fun v ->
-      let t = S.get (v <+ "type") sub in
-        CCOpt.map2 (E.update v) t e)
-    (Some E.empty)
-    (CCList.sort_uniq Name.compare (variables ast))
-  )
+let global_context : A.program -> E.t option = fun prog -> 
+  let pre, ast, post = prog in
+  let ast_constraints = global_constraints ast in
+  let pre_constraints = snd (type_constraints pre) in
+  let post_constraints = snd (type_constraints post) in
+  ast_constraints @ pre_constraints @ post_constraints
+    |> C.resolve
+    >>= (fun sub ->
+      CCList.fold_left (fun e -> fun v ->
+        let t = S.get (v <+ "type") sub in
+          CCOpt.map2 (E.update v) t e)
+      (Some E.empty)
+      (CCList.sort_uniq Name.compare (variables ast))
+    )
 
 (* for expressions only *)
 let expression_context : A.expr -> E.t option = fun ex -> ex

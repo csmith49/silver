@@ -8,7 +8,7 @@
 %token EOI
 
 /* logical tokens */
-%token AND OR NOT
+%token AND OR NOT IMPLIES
 
 
 /* brackets and whatnot */
@@ -121,6 +121,7 @@ identifier:
   | GT { Operation.Defaults.gt }
   | AND { Operation.Defaults.and_ }
   | OR { Operation.Defaults.or_ }
+  | IMPLIES {Operation.Defaults.implies}
 
 /* a simplifying macro for above */
 %public plist(X):

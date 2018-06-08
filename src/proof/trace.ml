@@ -127,13 +127,13 @@ let encode_step
           ((Vars.h i) =. (Vars.h (i - 1))) in
         let env = Vars.extend i s.variables in
           ([Constraint.of_expr env enc], strat)
-    (* (w = wp) & ((h = hp) | !b) *)
+    (* (w = wp) & (h = (hp | !b)) *)
     | E.Assume b -> 
       let _, strat = Strategy.apply strat s in
       let enc =
         ((Vars.w i) =. (Vars.w (i - 1))) &.
         (
-          ((Vars.h i) =. (Vars.h (i - 1))) |. (!. b)
+          ((Vars.h i) =. ((Vars.h (i - 1)) |. (!. b)))
         ) in
       let env = Vars.extend i s.variables in
         ([Constraint.of_expr env enc], strat)

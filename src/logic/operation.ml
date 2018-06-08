@@ -11,6 +11,16 @@ type t = {
   solver_encoding : S.Expr.t list -> S.Expr.t;
 }
 
+(* comparisons can't be based on semantics *)
+let to_tuple : t -> (Name.t * string * Types.t) = fun op ->
+  (op.name, op.symbol, op.signature)
+
+let compare (left : t) (right : t) : int =
+  Pervasives.compare (to_tuple left) (to_tuple right)
+
+let equivalent (left : t) (right : t) : bool =
+  (compare left right) = 0
+
 (* for building solver encodings and whatnot *)
 exception Encoding_error
 
@@ -29,6 +39,7 @@ module Defaults = struct
   (* some default type constuctors *)
   let rational = T.Base T.Rational
   let boolean = T.Base T.Boolean
+  let alpha = T.Variable (Name.of_string "alpha")
   let f xs o = T.Function (xs, o)
 
   (* unary ops *)
@@ -87,17 +98,17 @@ module Defaults = struct
   let eq = {
     name = Name.of_string "Eq";
     symbol = "==";
-    signature = f [rational ; rational] boolean;
+    signature = f [alpha ; alpha] boolean;
     value_encoding = lift_binary (fun v -> fun w ->
-      Value.of_bool ((Value.to_num v) = (Value.to_num w)));
+      Value.of_bool (v = w));
     solver_encoding = lift_binary S.Expr.eq;
   }
   let neq = {
     name = Name.of_string "NEq";
     symbol = "!=";
-    signature = f [rational ; rational] boolean;
+    signature = f [alpha ; alpha] boolean;
     value_encoding = lift_binary (fun v -> fun w ->
-      Value.of_bool ((Value.to_num v) != (Value.to_num w)));
+      Value.of_bool (v !=  w));
     solver_encoding = lift_binary S.Expr.neq;
   }
   let leq = {

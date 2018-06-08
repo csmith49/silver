@@ -10,15 +10,19 @@ type t =
   | Number of Number.t
   | Boolean of bool
 
-exception Cast_error
+exception Cast_error of string
 
-let to_num : t -> Number.t = function
+let to_string : t -> string = function
+  | Number n -> Number.to_string n
+  | Boolean b -> if b then "true" else "false"
+
+let to_num : t -> Number.t = fun x -> match x with
   | Number n -> n
-  | _ -> raise Cast_error
+  | _ -> raise (Cast_error ((to_string x) ^ " cannot be cast to num"))
 
-let to_bool : t -> bool = function
+let to_bool : t -> bool = fun x -> match x with
   | Boolean b -> b
-  | _ -> raise Cast_error
+  | _ -> raise (Cast_error ((to_string x) ^ " cannot be cast to bool"))
 
 let of_num : Number.t -> t = fun n -> Number n
 
@@ -26,9 +30,6 @@ let of_rational : Rational.t -> t = fun q -> Number (Rational.to_float q)
 
 let of_bool : bool -> t = fun n -> Boolean n
 
-let to_string : t -> string = function
-  | Number n -> Number.to_string n
-  | Boolean b -> if b then "true" else "false"
 
 (* alias for the following modules *)
 type t_alias = t
@@ -66,11 +67,11 @@ module Model = struct
 
   let to_value : entry -> t_alias = function
     | Concrete x -> x
-    | _ -> raise Cast_error
+    | _ -> raise Binding_error
 
   let to_map : entry -> FiniteMap.t = function
     | Map m -> m
-    | _ -> raise Cast_error
+    | _ -> raise Binding_error
 
   type t = entry NameMap.t
 

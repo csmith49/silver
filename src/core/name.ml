@@ -6,18 +6,29 @@ type t = {
 }
 
 (* simple constructors and printers *)
-let of_string (s : string) : t = {
-  id = s;
-  hash = 0;
-  counter = 0;
-}
+let of_string (s : string) : t =
+  let rest, hash = match CCString.Split.right ~by:":" s with
+    | Some (rest, hash') -> rest, (int_of_string hash')
+    | None -> s, 0 in
+  let id, counter = match CCString.Split.left ~by:"_" rest with
+    | Some (id, counter') -> id, (int_of_string counter')
+    | None -> rest, 0 in 
+  {
+    id = id;
+    hash = hash;
+    counter = counter;
+  }
+
 let to_string : t -> string = fun n ->
   let h = if n.hash = 0 then "" else ":" ^ (string_of_int n.hash) in
-  let i = if n.counter = 0 then "" else ":" ^ (string_of_int n.counter) in
+  let i = if n.counter = 0 then "" else "_" ^ (string_of_int n.counter) in
     (n.id) ^ i ^ h
   
+let to_tuple : t -> (string * int * int) = fun n ->
+  (n.id, n.hash, n.counter)
+
 (* comparison is done polymorphically - no natural order to induce anyways *)
-let compare = Pervasives.compare
+let compare (left : t) (right : t) = Pervasives.compare (to_tuple left) (to_tuple right)
 
 (* hashing *)
 (* hashing ignores the counter *)
