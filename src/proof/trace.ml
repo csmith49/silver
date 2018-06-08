@@ -124,7 +124,7 @@ let encode_step
         let enc = 
           ((AST.Identifier x) =. e) &. 
           ((Vars.w i) =. (Vars.w (i - 1))) &. 
-          ((Vars.h i) =. (Vars.h (i - 1))) in
+          ((Vars.h i) =. (Vars.h (i - 1))) |> Simplify.simplify in
         let env = Vars.extend i s.variables in
           ([Constraint.of_expr env enc], strat)
     (* (w = wp) & (h = (hp | !b)) *)
@@ -134,14 +134,14 @@ let encode_step
         ((Vars.w i) =. (Vars.w (i - 1))) &.
         (
           ((Vars.h i) =. ((Vars.h (i - 1)) |. (!. b)))
-        ) in
+        ) |> Simplify.simplify in
       let env = Vars.extend i s.variables in
         ([Constraint.of_expr env enc], strat)
     | E.Draw (x, e) ->
       (* s & w = wp + c & h = hp *)
       let f = fun (s, c) -> s &. 
         ((Vars.w i) =. ((Vars.w (i - 1) +. c))) &.
-        ((Vars.h i) =. (Vars.h (i - 1))) in 
+        ((Vars.h i) =. (Vars.h (i - 1))) |> Simplify.simplify in 
       let terms, strategy = Strategy.apply strat s in
       let to_pair c t = c.Probability.semantics t, c.Probability.cost t in
       let env = Vars.extend i s.variables in

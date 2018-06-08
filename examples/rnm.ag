@@ -12,4 +12,4 @@ while (i <= n) {
     i = i + 1;
 }
 
-{{ for i in [1..n] . a[best] > q[i] - (1/e) * log(n/beta) }}
+{{ for i . ((i >= 1) & ( i <= n)) => (a[best] > q[i] - (1/e) * log(n/beta)) }}

@@ -56,12 +56,12 @@ let rec apply (e : expr) (s : t) : expr = match e with
 
 (* if possible, generate a t that when applied to the left, matches the right *)
 let rec left_unify (pattern : expr) (term : expr) : t option =
-  if pattern = term then Some empty else match pattern, term with
+  if (AST.compare pattern term) = 0 then Some empty else match pattern, term with
     | AST.Identifier i, _ -> Some (singleton i term)
-    | AST.BinaryOp (o, l, r), AST.BinaryOp (o', l', r') when o = o' ->
+    | AST.BinaryOp (o, l, r), AST.BinaryOp (o', l', r') when Operation.equivalent o o' ->
       merge_opt (left_unify l l') (left_unify r r')
-    | AST.UnaryOp (o, e), AST.UnaryOp (o', e') when o = o' -> left_unify e e'
-    | AST.FunCall (f, args), AST.FunCall (f', args') when f = f' ->
+    | AST.UnaryOp (o, e), AST.UnaryOp (o', e') when Operation.equivalent o o' -> left_unify e e'
+    | AST.FunCall (f, args), AST.FunCall (f', args') when Operation.equivalent f f' ->
       CCList.fold_left merge_opt (Some empty) (CCList.map2 left_unify args args')
     | _ -> None
 
