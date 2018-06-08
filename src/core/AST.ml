@@ -188,6 +188,10 @@ module Infix = struct
   let ( >= ) (l : expr) (r : expr) : expr =
     BinaryOp (Operation.Defaults.geq, l, r)
 
+  let ( > ) (l : expr) (r : expr) : expr =
+    BinaryOp (Operation.Defaults.gt, l, r)
+
+  
   let var : string -> expr = fun s ->
     Identifier (Var (Name.of_string s))
 

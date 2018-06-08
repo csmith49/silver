@@ -13,9 +13,10 @@ let apply : template -> (AST.expr -> AST.expr option) = function
 module Defaults = struct
   let not_idempotent = mk "!(!(x))" "x"
 
+  let universal_to_existential = mk "!(forall(x, y))" "exists(x, !(y))"
   (* these are the templates that will be applied *)
   (* we make no asssumption of confluence, termination, etc. *)
-  let all = [not_idempotent]
+  let all = [not_idempotent; universal_to_existential]
 end
 
 (* just apply in some order *)

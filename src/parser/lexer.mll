@@ -48,7 +48,7 @@ rule read = parse
   | "then" {THEN}
   | "else" {ELSE}
   | "for" {FORALL}
-  | "exists" {EXISTS}
+  | "some" {EXISTS}
   | '.' {PERIOD}
   | '=' {ASSIGN}
   | '~' {DRAW}

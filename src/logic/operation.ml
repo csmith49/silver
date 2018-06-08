@@ -176,7 +176,7 @@ module Defaults = struct
 
   let exists = {
     name = Name.of_string "exists";
-    symbol = "Exists";
+    symbol = "exists";
     signature = f [rational; boolean] boolean;
     value_encoding = lift_unary (fun _ -> raise Encoding_error);
     solver_encoding = fun xs -> match xs with
@@ -185,7 +185,7 @@ module Defaults = struct
   }
   let forall = {
     name = Name.of_string "forall";
-    symbol = "ForAll";
+    symbol = "forall";
     signature = f [rational; boolean] boolean;
     value_encoding = lift_unary (fun _ -> raise Encoding_error);
     solver_encoding = fun xs -> match xs with
@@ -217,7 +217,7 @@ module Defaults = struct
   let complicated = [log]
 
   (* all the defined functions *)
-  let defined = unary @ arithmetic @ comparisons @ logical @ distributions @ complicated
+  let defined = unary @ arithmetic @ comparisons @ logical @ distributions @ complicated @ quantifiers
 end
 
 (* and a method to find ones with matching names *)
