@@ -6,15 +6,17 @@ end
 (* nodes contain the relevant annotations, or possibly a list of annotations *)
 module Node = struct
   type t = {
-    annotation : AST.expr;
-    cost : AST.expr;
+    id : Name.t;
+    tags : Program.Tag.t list;
+    (* if we're generating interpolants lazily, these may not be filled in *)
+    annotation : AST.expr option;
+    cost : AST.expr option;
   }
-  type conjunction = t list
 end
 
 (* an abstraction is a list of annotated automata *)
 type proof = (Node.t, Edge.t) Automata.t
-type conjunction = (Node.conjunction, Edge.t) Automata.t
+type conjunction = (Node.t list, Edge.t) Automata.t
 type t = proof list
 
 (* given an abstraction, it is simple to add a new proof automata *)
@@ -62,3 +64,25 @@ let covers (p : Program.t) (abs : t) : answer =
         | Some path -> Counterexample path
         | None -> Covers
       end
+
+(* given a path we know is correct, we can build a proof *)
+type program_path = (Program.Node.t, Program.Edge.t) Graph.Path.t
+
+let of_path : program_path -> proof = fun p ->
+  let path = Graph.Path.map (fun n -> {
+      Node.id = n.Program.Node.id;
+      tags = n.Program.Node.tags;
+      annotation = None;
+      cost = None;
+    }) p in
+  let states = Graph.Path.to_states path in
+  let init = CCList.hd states in
+  let accepting = [states |> CCList.last_opt |> CCOpt.get_exn] in
+  let delta = fun s -> path
+    |> CCList.filter_map (fun (src, lbl, dest) -> if src = s then Some (lbl, dest) else None) in
+  {
+    Automata.states = states;
+    start = init;
+    accepting = accepting;
+    delta = delta;
+  }

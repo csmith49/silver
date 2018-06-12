@@ -37,9 +37,9 @@ let concretize : AST.expr -> AST.expr -> axiom -> concretized_axiom option = fun
 
 (* some utility to make things cleaner *)
 let mk (pat : string) (sem : string) (cost : string) = {
-  pattern = Utility.parse_expr pat;
-  abstract_semantics = Utility.parse_expr sem;
-  abstract_cost = Utility.parse_expr cost;
+  pattern = Parse.parse_expr pat;
+  abstract_semantics = Parse.parse_expr sem;
+  abstract_cost = Parse.parse_expr cost;
 }
 
 (* and the defaults can go here *)

@@ -68,6 +68,6 @@ let pattern_of_pair : Symbol.t * AST.expr -> pattern = fun (s, e) ->
   }
 
 let mk : string * string -> pattern = fun (s, e) ->
-  let s' = Utility.parse_id s in
-  let e' = Utility.parse_expr e in
+  let s' = Parse.parse_id s in
+  let e' = Parse.parse_expr e in
     pattern_of_pair (Symbol.of_id s', e')

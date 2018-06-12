@@ -67,7 +67,7 @@ let rec left_unify (pattern : expr) (term : expr) : t option =
 
 (* utility for encoding a lot later *)
 let template (values : (string * expr) list) (pattern : string) : expr =
-  let e = Utility.parse_expr pattern in
+  let e = Parse.parse_expr pattern in
   let s = values
     |> CCList.map (fun (k, v) -> (AST.Var (Name.of_string k), v))
     |> of_list in

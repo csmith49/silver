@@ -1,8 +1,8 @@
 type template = Template of (AST.expr -> AST.expr option)
 
 let mk (pattern : string) (result : string) : template =
-  let patt = Utility.parse_expr pattern in
-  let res = Utility.parse_expr result in
+  let patt = Parse.parse_expr pattern in
+  let res = Parse.parse_expr result in
   Template (fun e -> match Substitution.left_unify patt e with
     | Some sub -> Some (Substitution.apply res sub)
     | None -> None)

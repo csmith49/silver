@@ -1,6 +1,7 @@
 (* the machinery necessary for representing program automata *)
 open Name.Infix
 
+(* edges maintain the operation performed while moving from state to state *)
 module Edge = struct
   type t =
     | Assume of AST.expr
@@ -19,22 +20,48 @@ module Edge = struct
         i' ^ " ~ " ^ e'
 end
 
+(* nodes maintain a unique id - name.t, in this case - and a list of tags representing pertinent info *)
+module Tag = struct
+  type t =
+    | LoopHead
+    | Branch
+
+  let to_string : t -> string = function
+    | LoopHead -> "LOOP"
+    | Branch -> "BRANCH"
+end
+
 module Node = struct
-  type t = N of Name.t
-
-  let to_name : t -> Name.t = function N n -> n
-
-  let to_string : t -> string = fun n -> Name.to_string (to_name n)
+  type t = {
+    id : Name.t;
+    tags : Tag.t list;
+  }
+    
+  let to_string : t -> string = fun n -> 
+    let id = Name.to_string n.id in
+    let tags = n.tags
+      |> CCList.map Tag.to_string
+      |> CCString.concat "/" in
+    if tags = "" then id else id ^ "[" ^ tags ^ "]"
 
   let counter = ref 0
 
   let extend (n : t) (s : string) : t =
     let i = !counter in
     let _ = counter := i + 1 in
-    match n with
-      N x -> N (x <+ (string_of_int i) <+ s)
-  
-  let of_string : string -> t = fun s -> N (Name.of_string s)
+    {
+      id = n.id <+ (string_of_int i) <+ s;
+      tags = [];
+    }
+
+  let of_string : string -> t = fun s -> {
+    id = Name.of_string s;
+    tags = [];
+  }
+
+  let set_tag : Tag.t -> t -> t = fun tag -> fun n -> {
+    n with tags = tag :: n.tags;
+  }
 end
 
 type t = (Node.t, Edge.t) Automata.t
@@ -59,7 +86,7 @@ let rec graph_of_ast (ast : AST.t) (n : Node.t) : Node.t * (Node.t, Edge.t) Grap
   | AST.ITE (b, l, r) ->
     let (ln, lg) = graph_of_ast l n in
     let (rn, rg) = graph_of_ast r n in
-    let fresh_n = Node.extend n "ite" in
+    let fresh_n = Node.extend n "ite" |> Node.set_tag Tag.Branch in
     let true_edge = Edge.Assume b in
     let false_edge = Edge.Assume (AST.UnaryOp (Operation.Defaults.not_, b)) in
     let delta = (fun s ->
@@ -67,7 +94,7 @@ let rec graph_of_ast (ast : AST.t) (n : Node.t) : Node.t * (Node.t, Edge.t) Grap
       if s = fresh_n then [(true_edge, ln); (false_edge, rn)] @ old_edges else old_edges) in
         (fresh_n, delta)
   | AST.While (b, e) ->
-    let fresh_n = Node.extend n "while" in
+    let fresh_n = Node.extend n "while" |> Node.set_tag Tag.LoopHead in
     let (en, eg) = graph_of_ast e fresh_n in
     let loop_edge = Edge.Assume b in
     let exit_edge = Edge.Assume (AST.UnaryOp (Operation.Defaults.not_, b)) in

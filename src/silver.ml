@@ -7,7 +7,7 @@ let _ = Global.get_args ();
 
 (* let's do some parsing *)
 (* load the file into a lexing buffer *)
-let prog = Utility.parse !Global.filename in
+let prog = Parse.parse !Global.filename in
 let pre, p, post = prog in
 let env = Static.global_context prog |> CCOpt.get_exn in
 let automata = Program.of_ast p in

@@ -23,7 +23,7 @@ type t = axiom list
 
 (* we will easily make axioms from strings - just hijacking some functions from synth *)
 let axiom_of_string : string -> axiom = fun s ->
-  let e = Utility.parse_expr s in
+  let e = Parse.parse_expr s in
   let expr, ss = Synth.extract_symbols e in
   let vars, input = CCList.split ss in
   let app_fun = fun es -> Substitution.apply expr (Substitution.of_list (CCList.combine vars es)) in
