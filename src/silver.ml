@@ -1,5 +1,6 @@
 (* we'll need this eventually, but this is just to make sure it's included in the build process for now *)
 open Check
+open Interpolant
 
 (* get the cmd line args *)
 let _ = Global.get_args ();
@@ -26,3 +27,4 @@ let answer = Check.check ~verbose:!Global.verbose env Trace.vars_in_scope Probab
 match answer with
   | Some _ -> print_endline "Correct"
   | None -> print_endline "Incorrect"
+

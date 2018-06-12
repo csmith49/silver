@@ -22,7 +22,7 @@ let post_to_constraint (trace : trace) : AST.annotation -> Constraint.t = fun an
   let expr = ((var "beta") >= (int 0)) &. 
     (!. (((var_i ("w", i) <= (var "beta"))) &.
     ((!. (var_i ("h", i))) =>. annot))) in
-      Constraint.of_expr env expr
+      Constraint.of_expr env (Simplify.simplify expr)
 
 (*  *)
 let vprint verbose s = if verbose then print_endline s else ()

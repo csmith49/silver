@@ -35,7 +35,7 @@ let to_string : t -> string = fun c -> AST.expr_to_string c.expression
 
 let of_expr (m : Types.Environment.t) : AST.expr -> t = fun e -> {
   expression = e;
-  encoding = Encoding.encode m e;
+  encoding = Cata.encode m e;
 }
 
 type conjunction = t list
@@ -87,7 +87,7 @@ let check_wrt_theory ?(verbose=false) (c : Types.Environment.t) : Theory.t -> co
       let _ = vprint verbose ("[THEORY] Satisfiable with model " ^ (Value.Model.to_string model)) in
       let values = cs
         |> CCList.map (fun c -> c.expression)
-        |> CCList.map (Evaluation.evaluate model) in
+        |> CCList.map (Cata.evaluate model) in
       if CCList.for_all (fun v -> v = (Value.of_bool true)) values then
         let _ = vprint verbose ("[THEORY] Model consistent with evaluation.") in
         Answer.Sat model
@@ -99,7 +99,7 @@ let check_wrt_theory ?(verbose=false) (c : Types.Environment.t) : Theory.t -> co
       let num_axioms = CCList.length axioms in
       let failure_clause = cs
         |> CCList.map (fun c -> c.expression)
-        |> CCList.filter (fun c -> (Evaluation.evaluate model c) = (Value.of_bool false))
+        |> CCList.filter (fun c -> (Cata.evaluate model c) = (Value.of_bool false))
         |> CCList.hd in
       let _ = vprint verbose 
         ("[THEORY] Clause " ^ (AST.expr_to_string failure_clause) ^ " inconsistent with evaluation. Checking with " ^ (string_of_int num_axioms) ^ " enumerated axioms.") in
