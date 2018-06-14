@@ -64,3 +64,11 @@ let to_string (sp : 's -> string) (lp : 'w -> string) (automata : ('s, 'w) t) : 
   let div = "+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+" in
   (* output *)
     CCString.concat "\n" (start' :: final' :: div :: edges' @ [div])
+
+(* pruning just removes unreachable states *)
+let prune ?(s_eq = (=)) : ('s, 'w) t -> ('s, 'w) t = fun automata -> 
+  let reachable = Graph.reachable ~v_eq:s_eq [automata.start] automata.delta in {
+    automata with 
+      states = CCList.filter (fun state -> CCList.mem s_eq state reachable) automata.states;
+      final = CCList.filter (fun state -> CCList.mem s_eq state reachable) automata.final;
+  }

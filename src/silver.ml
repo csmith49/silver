@@ -29,8 +29,10 @@ let d_axioms = Probability.Laplace.all in
 let _ = print_endline "[TRACES]" in
 
 while (not !finished) do
+  let _ = print_endline ("[ABSTRACTION] Current abstraction is: ") in
+  let _ = print_endline (Abstraction.to_string !abstraction) in
   (* STEP 1: Check to see if our abstraction covers the program automata *)
-  match Abstraction.covers automata !abstraction with
+  match Abstraction.covers ~verbose:!Global.verbose automata !abstraction with
     (* CASE 1.1: The automata is covered. The abstraction serves as a proof that p is correct *)
     | Abstraction.Covers -> begin 
         finished := true;

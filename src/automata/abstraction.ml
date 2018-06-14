@@ -11,6 +11,9 @@ module State = struct
     cost : AST.expr option;
   }
 
+  (* printing *)
+  let to_string : t -> string = fun s -> Name.to_string s.id
+
   (* comparison just the polymorphic default *)
   let eq = (=)
 end
@@ -54,7 +57,17 @@ module Conjunction = struct
     | proof :: rest -> match of_abstraction rest with
       | Some conjunct -> Some (conjoin proof conjunct)
       | None -> None (* this case should never happen *)
+
+  (* printing *)
+  let to_string : t -> string =
+    let slist_to_string (ss : State.t list) = CCList.map State.to_string ss |> CCString.concat " | "
+    in Automata.to_string slist_to_string Program.Label.to_string
 end
+
+(* printing just constructs the conjunction and goes from there *)
+let to_string : t -> string = fun abs -> match Conjunction.of_abstraction abs with
+  | Some conjunct -> Conjunction.to_string conjunct
+  | None -> "EMPTY"
 
 (* initial construction *)
 let init = []
@@ -75,29 +88,62 @@ type answer =
   | Covers
   | Counterexample of Program.path
 
-(* lifting eq up to the automata constructed in covers *)
-let rec lex_eq (eq : 'a -> 'a -> bool) (left : 'a list) (right : 'a list) : bool = match left, right with
-  | x :: xs, y :: ys ->
-    if eq x y then lex_eq eq xs ys else false
-  | [], [] -> true
-  | _ -> false
+ module Intersection = struct
+  module State = struct
+    type t = Program.State.t * State.t list
 
-let pair_eq (l_eq : 'a -> 'a -> bool) (r_eq : 'b -> 'b -> bool) (left : 'a * 'b) (right : 'a * 'b) : bool =
-  match left, right with (a, b), (a', b') -> (l_eq a a') && (r_eq b b')
+    (* lifting eq up to the automata constructed in covers *)
+    let rec lex_eq (eq : 'a -> 'a -> bool) (left : 'a list) (right : 'a list) : bool = match left, right with
+    | x :: xs, y :: ys ->
+      if eq x y then lex_eq eq xs ys else false
+    | [], [] -> true
+    | _ -> false
 
-let eq = pair_eq Program.State.eq (lex_eq State.eq)
+    (* and lifting eq over pairs *)
+    let pair_eq (l_eq : 'a -> 'a -> bool) (r_eq : 'b -> 'b -> bool) (left : 'a * 'b) (right : 'a * 'b) : bool =
+      match left, right with (a, b), (a', b') -> (l_eq a a') && (r_eq b b')
+
+    (* constructing the eq from primitives *)
+    let eq = pair_eq Program.State.eq (lex_eq State.eq)
+
+    let to_string : t -> string = fun (s, ss) ->
+      let s' = Program.State.to_string s in
+      let ss' = CCList.map State.to_string ss in
+        CCString.concat " | " (s' :: ss')
+  end
+
+  module Label = Program.Label
+
+  type t = (State.t, Label.t) Automata.t
+
+  let to_string : t -> string = Automata.to_string State.to_string Label.to_string
+ end
 
 (* check if the program is covered by the abstraction *)
-let covers (p : Program.t) (abs : t) : answer =
-  match complement abs with
+let vprint verbose msg = if verbose then print_endline msg else ()
+
+let covers ?(verbose=false) (p : Program.t) (abs : t) : answer =
+  let vp = vprint verbose in
+  let _ = vp "[COVERING] Generating complement..." in
+  let comp = complement abs in
+  let _ = vp "[COVERING] Complement automata is: " in
+  match comp with
     | Some conjunct ->
-      let intersection = Automata.intersect p conjunct in
-      let word = Automata.find ~s_eq:eq intersection in
+      let _ = vp (Conjunction.to_string conjunct) in
+      let _ = vp "[COVERING] Computing intersection..." in
+      let intersection = Automata.intersect p conjunct 
+        |> Automata.prune ~s_eq:Intersection.State.eq in
+      let _ = vp "[COVERING] Intersection is: " in
+      let _ = vp (Intersection.to_string intersection) in
+      let _ = vp "[COVERING] Finding path in intersection..." in
+      let word = Automata.find ~s_eq:Intersection.State.eq intersection in
       begin match word with
         | Some path -> Counterexample (Graph.Path.map fst path)
         | None -> Covers
       end
-    | None -> begin match Automata.find ~s_eq:Program.State.eq p with
+    | None -> 
+      let _ = vp "UNIVERSE\n[COVERING] No abstraction. Finding program path..." in
+      begin match Automata.find ~s_eq:Program.State.eq p with
         | Some path -> Counterexample path
         | None -> Covers
       end
