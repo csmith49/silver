@@ -77,23 +77,16 @@ block_statement:
 
 expression:
   | e = unary { e }
-  | l = unary; op = binary_op; r = expression { AST.BinaryOp (op, l, r) }
+  | l = unary; op = binary_op; r = expression { AST.FunCall (op, [l ; r]) }
 
 unary:
   | e = base { e }
-  | op = unary_op; e = base { AST.UnaryOp (op, e) }
+  | op = unary_op; e = base { AST.FunCall (op, [e]) }
 
 base:
   | c = literal {c}
   | x = identifier { AST.Identifier x }
-  | f = NAME; args = plist(expression) 
-    { 
-      match Operation.find_op f with
-        | Some f -> AST.FunCall (f, args)
-        | None ->
-          let f = Operation.mk_op f (CCList.length args) in
-            AST.FunCall (f, args)
-    }
+  | f = NAME; args = plist(expression) { AST.FunCall (f, args) }
   | e = delimited(LEFT_PAREN, expression, RIGHT_PAREN) { e }
 
 literal:
@@ -106,22 +99,22 @@ identifier:
 
 /* the operations */
 %inline unary_op:
-  | NOT { Operation.Defaults.not_ }
-  | MINUS { Operation.Defaults.negative }
+  | NOT { Name.of_string "Not" }
+  | MINUS { Name.of_string "Negative" }
 %inline binary_op:
-  | PLUS { Operation.Defaults.plus }
-  | MULT { Operation.Defaults.mult }
-  | DIV  { Operation.Defaults.div }
-  | MINUS { Operation.Defaults.minus }
-  | EQ { Operation.Defaults.eq }
-  | NEQ { Operation.Defaults.neq }
-  | LEQ { Operation.Defaults.leq }
-  | GEQ { Operation.Defaults.geq }
-  | LT { Operation.Defaults.lt }
-  | GT { Operation.Defaults.gt }
-  | AND { Operation.Defaults.and_ }
-  | OR { Operation.Defaults.or_ }
-  | IMPLIES {Operation.Defaults.implies}
+  | PLUS { Name.of_string "Plus" }
+  | MULT { Name.of_string "Mult" }
+  | DIV  { Name.of_string "Div" }
+  | MINUS { Name.of_string "Minus" }
+  | EQ { Name.of_string "Eq" }
+  | NEQ { Name.of_string "NEq" }
+  | LEQ { Name.of_string "LEq" }
+  | GEQ { Name.of_string "GEq" }
+  | LT { Name.of_string "LT" }
+  | GT { Name.of_string "GT" }
+  | AND { Name.of_string "And" }
+  | OR { Name.of_string "Or" }
+  | IMPLIES { Name.of_string "Implies" }
 
 /* a simplifying macro for above */
 %public plist(X):
@@ -133,8 +126,8 @@ annotation:
 
 quantified_expression:
   | q = quantifier; i = NAME; PERIOD; e = expression { match q with
-    | AST.Exists -> AST.FunCall (Operation.Defaults.exists, [AST.Identifier (AST.Var i); e])
-    | AST.ForAll -> AST.FunCall (Operation.Defaults.forall, [AST.Identifier (AST.Var i); e])}
+    | AST.Exists -> AST.FunCall (Name.of_string "Exists", [AST.Identifier (AST.Var i); e])
+    | AST.ForAll -> AST.FunCall (Name.of_string "ForAll", [AST.Identifier (AST.Var i); e])}
   | e = expression { e }
 
 %inline quantifier:

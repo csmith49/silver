@@ -1,67 +1,66 @@
-module Utility = struct
-  let cart_prod (l : 'a list) (r : 'b list) : ('a * 'b) list =
-    CCList.cartesian_product [l; r]
-      |> CCList.filter_map (fun xs -> match xs with [a;b] -> Some (a, b) | _ -> None)
-end
-
-(* the type --- list of states, start state, delta, accepting states *)
-type ('s, 'e) t = {
+(* classic automata representation - the transition relation is represented by a graph *)
+type ('s, 'w) t = {
   states : 's list;
   start : 's;
-  delta : ('s, 'e) Graph.t;
-  accepting : 's list;
+  delta : ('s, 'w) Graph.t;
+  final : 's list;
 }
 
-(* take one step along the automata *)
-let consume_symbol (init : 's) (s : 'e) (a : ('s, 'e) t) : 's list =
-  let out_edges = a.delta init in
-  let fm = fun (e, v) -> if e == s then Some v else None in
-    CCList.filter_map fm out_edges    
+type ('s, 'w) path = ('s, 'w) Graph.Path.t
 
-(* consumes a word *)
-let rec consume (init : 's) (w : 'e list) (a : ('s, 'e) t) : 's list =
-  match w with
-    | [] -> []
-    | s :: ss ->
-      let out_states = consume_symbol init s a in
-      let step_again = fun i -> consume i ss a in
-        CCList.flat_map step_again out_states
+(* consume a single symbol non-deterministically *)
+let consume_letter ?(l_eq = (=)) (start : 's) (letter : 'w) (automata : ('s, 'w) t) : 's list =
+  let edges_out = automata.delta start in
+  let f = fun (lbl, dest) -> if l_eq lbl letter then Some dest else None in
+    CCList.filter_map f edges_out
 
-(* containment in the language *)
-let mem (w : 'e list) (a : ('s, 'e) t) : bool =
-  let terminal_states = consume a.start w a in
-  let accepting = fun s -> List.mem s a.accepting in
+(* consume an entire word *)
+let rec consume ?(l_eq = (=)) (start : 's) (word : 'w list) (automata : ('s, 'w) t) : 's list = match word with
+  | [] -> [start]
+  | l :: ls ->
+    let next_states = consume_letter ~l_eq:l_eq l start automata in
+    let step_again = fun state -> consume ~l_eq:l_eq state ls automata in
+      CCList.flat_map step_again next_states
+
+(* check to see if a word is accepted *)
+let mem ?(s_eq = (=)) ?(l_eq = (=)) (word : 'w list) (automata : ('s, 'w) t) : bool =
+  let terminal_states = consume ~l_eq:l_eq automata.start word automata in
+  let accepting = fun state -> CCList.mem s_eq state automata.final in
     CCList.exists accepting terminal_states
 
-(* negation *)
-let negate : ('s, 'e) t -> ('s, 'e) t = fun a -> 
-  let not_accepted = fun s -> not (List.mem s a.accepting) in
-    {a with
-      accepting = CCList.filter not_accepted a.states;
-    }
+(* negate an automata *)
+let negate ?(s_eq = (=)) (automata : ('s, 'w) t) : ('s, 'w) t =
+  let not_final = fun state -> not (CCList.mem s_eq state automata.final) in
+  { automata with final = CCList.filter not_final automata.states; }
 
-(* intersection is the usual *)
-let intersect (l : ('s, 'e) t) (r : ('t, 'e) t) : ('s * 't, 'e) t = {
-  states = l.states
-    |> CCList.flat_map (fun a -> CCList.map (fun b -> (a, b)) r.states);
-  start = (l.start, r.start);
-  delta = Graph.map2 (fun l -> fun r -> (l, r)) fst snd l.delta r.delta;
-  accepting = l.accepting
-    |> CCList.flat_map (fun a -> CCList.map (fun b -> (a, b)) r.accepting);
-}
+(* find a word in the language, if one exists *)
+let find ?(s_eq = (=)) (automata : ('s, 'w) t) : ('s, 'w) path option =
+  Graph.bfs ~v_eq:s_eq [automata.start] automata.final automata.delta
 
-(* and we will want to check emptiness of the language - by getting a word *)
-let get_word : ('s, 'e) t -> ('s, 'e) Graph.Path.t option = fun a ->
-  Graph.bfs [a.start] a.accepting a.delta
+(* construct the intersection automata *)
+let intersect ?(l_eq = (=)) (a : ('a, 'w) t) (b : ('b, 'w) t) : ('a * 'b, 'w) t = {
+    states = a.states
+      |> CCList.flat_map (fun a -> CCList.map (CCPair.make a) b.states);
+    start = (a.start, b.start);
+    delta = Graph.product ~e_eq:l_eq a.delta b.delta;
+    final = a.final
+      |> CCList.flat_map (fun a -> CCList.map (CCPair.make a) b.final);
+  }
 
-(* some summary utilities, so we can actually inspect the resulting graphs *)
-let summary (np : 's -> string) (ep : 'e -> string) (a : ('s, 'e) t) : string = 
-  let local_view = fun v ->
-    let v' = np v in
-    let d' = CCList.map (fun (e, v) -> "-{" ^ (ep e) ^ "}-> " ^ (np v)) (a.delta v) in
-      CCString.concat "\n\t" (v' :: d') in
-  let start' = "Start:\n\t" ^ (np a.start) in
-  let acc' =
-    CCString.concat "\n\t" ("Accepting:" :: (CCList.map np a.accepting)) in
-  let divider = "<==================================>" in
-  CCString.concat "\n" (start' :: acc' :: divider :: (CCList.map local_view a.states) @ [divider])
+(* string conversion - really just used to provide a summary on the terminal *)
+let to_string (sp : 's -> string) (lp : 'w -> string) (automata : ('s, 'w) t) : string =
+  (* the local view just presents a state and all out-edges *)
+  let local_view = fun state ->
+    let state' = sp state in
+    let edges' = CCList.map (fun (lbl, dest) -> " --{" ^ (lp lbl) ^ "}-> " ^ (sp dest)) (automata.delta state) in
+      CCString.concat "\n\t" (state' :: edges') in
+  (* so we just show the start state... *)
+  let start' = "Start:\n\t" ^ (sp automata.start) in
+  (* ...the final states... *)
+  let final' = CCString.concat "\n\t" ("Final:" :: (CCList.map sp automata.final)) in
+  (* ...and the edges, using local_view *)
+  let edges' = CCList.map local_view automata.states in
+  (* divider for A E S T H E T I C S *)
+  let div = "+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+" in
+  (* output *)
+    CCString.concat "\n" (start' :: final' :: div :: edges' @ [div])

@@ -61,17 +61,6 @@ let rec simplify_td : AST.expr -> delta = fun e ->
         expression = AST.Identifier (AST.IndexedVar (n, i'.expression));
         changed = i'.changed;
       }
-    | AST.BinaryOp (o, l, r) ->
-      let l' = simplify_td l in
-      let r' = simplify_td r in {
-        expression = AST.BinaryOp (o, l'.expression, r'.expression);
-        changed = l'.changed || r'.changed;
-      }
-    | AST.UnaryOp (o, e) ->
-      let e' = simplify_td e in {
-        expression = AST.UnaryOp (o, e'.expression);
-        changed = e'.changed;
-      }
     | AST.FunCall (f, args) ->
       let args' = CCList.map simplify_td args in {
         expression = AST.FunCall (f, args' |> CCList.map (fun a -> a.expression));

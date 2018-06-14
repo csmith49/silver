@@ -49,8 +49,6 @@ let rec extract_terms (c : Types.Environment.t) : AST.expr -> state = fun e ->
     | None -> G.init in
   let children = match e with
     | AST.Identifier (AST.IndexedVar (_, i)) -> [i]
-    | AST.BinaryOp (_, l, r) -> [l;r]
-    | AST.UnaryOp (_, e) -> [e]
     | AST.FunCall (_, args) -> args
     | _ -> [] in
   let child_terms = CCList.map (extract_terms c) children in

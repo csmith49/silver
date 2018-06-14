@@ -13,21 +13,19 @@ module SSA = struct
   let rec update_expr : AST.expr -> t -> AST.expr = fun e -> fun c -> match e with
     | AST.Literal _ -> e
     | AST.Identifier i -> AST.Identifier (update_id i c)
-    | AST.BinaryOp (o, l, r) -> AST.BinaryOp (o, update_expr l c, update_expr r c)
-    | AST.UnaryOp (o, e) -> AST.UnaryOp (o, update_expr e c)
     | AST.FunCall (f, args) -> AST.FunCall (f, CCList.map (fun e -> update_expr e c) args)
 end
 
 (* module aliases to simplify type expressions *)
-module N = Program.Node
-module E = Program.Edge
+module State = Program.State
+module Label = Program.Label
 
 (* another alias *)
-type path = (N.t, E.t) Graph.Path.t
+type path = Program.path
 
 (* steps annotate graph steps with type and index info *)
 type step = {
-  step : (N.t, E.t) Graph.Path.step;
+  step : (State.t, Label.t) Graph.Path.step;
   variables : Types.Environment.t;
 }
 
@@ -43,7 +41,7 @@ module Strategy = struct
 end
 
 (* for printing nicely *)
-let path_to_string : path -> string = Program.path_to_string
+let path_to_string : path -> string = Graph.Path.to_string State.to_string Label.to_string
 
 (* recursively from paths *)
 let rec of_path (env : Types.Environment.t) : path -> t = function
@@ -51,21 +49,21 @@ let rec of_path (env : Types.Environment.t) : path -> t = function
   | edge :: rest ->
     let s, label, d = edge in
     let env, label = match label with
-      | E.Assign (i, e) ->
+      | Label.Assign (i, e) ->
         let e' = SSA.update_expr e env in
         let env = SSA.increment i env in
         let i' = SSA.update_id i env in
-        let label = E.Assign (i', e') in
+        let label = Label.Assign (i', e') in
           (env, label)
-      | E.Assume e -> 
+      | Label.Assume e -> 
         let e' = SSA.update_expr e env in
-        let label = E.Assume e' in
+        let label = Label.Assume e' in
           (env, label)
-      | E.Draw (i, e) ->
+      | Label.Draw (i, e) ->
         let e' = SSA.update_expr e env in
         let env = SSA.increment i env in
         let i' = SSA.update_id i env in
-        let label = E.Draw (i', e') in
+        let label = Label.Draw (i', e') in
           (env, label) in
     let edge = (s, label, d) in
     let step = {
@@ -119,7 +117,7 @@ let encode_step
   (i : int) : step -> Constraint.t list * Strategy.t = fun s -> 
     match s.step with (src, label, dest) -> match label with
       (* x = e & w = wp & h = hp *)
-      | E.Assign (x, e) -> 
+      | Label.Assign (x, e) -> 
         let _, strat = Strategy.apply strat s in
         let enc = 
           ((AST.Identifier x) =. e) &. 
@@ -128,7 +126,7 @@ let encode_step
         let env = Vars.extend i s.variables in
           ([Constraint.of_expr env enc], strat)
     (* (w = wp) & (h = (hp | !b)) *)
-    | E.Assume b -> 
+    | Label.Assume b -> 
       let _, strat = Strategy.apply strat s in
       let enc =
         ((Vars.w i) =. (Vars.w (i - 1))) &.
@@ -137,7 +135,7 @@ let encode_step
         ) |> Simplify.simplify in
       let env = Vars.extend i s.variables in
         ([Constraint.of_expr env enc], strat)
-    | E.Draw (x, e) ->
+    | Label.Draw (x, e) ->
       (* s & w = wp + c & h = hp *)
       let f = fun (s, c) -> s &. 
         ((Vars.w i) =. ((Vars.w (i - 1) +. c))) &.
@@ -166,9 +164,9 @@ let encode (env : Types.Environment.t) (strat : Strategy.t) (axioms : Probabilit
 let rec vars_in_scope : Strategy.t = Strategy.S (
   fun s -> 
     let expr = match s.step with (src, lbl, dest) -> match lbl with
-      | E.Assign (_, e) -> e
-      | E.Assume b -> b
-      | E.Draw (_, e) -> e in
+      | Label.Assign (_, e) -> e
+      | Label.Assume b -> b
+      | Label.Draw (_, e) -> e in
     let env = s.variables in
     let terms = expr
       |> Theory.extract_terms env

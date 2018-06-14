@@ -36,10 +36,8 @@ module Variables = struct
         | AST.IndexedVar (_, e) -> i :: (free e)
         | _ -> [i]
       end
-    | AST.BinaryOp (_, l, r) -> (free l) @ (free r)
-    | AST.UnaryOp (_, e) -> free e
     | AST.FunCall (f, args) ->
-      if CCList.mem Operation.equivalent f Operation.Defaults.quantifiers then match args with
+      if Operation.is_quantifier f then match args with
         | [AST.Identifier i; e] -> CCList.remove (=) i (free e)
         | _ -> []
       else CCList.flat_map free args

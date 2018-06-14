@@ -17,17 +17,16 @@ let rec evaluate (model : Value.Model.t) : AST.expr -> Value.t = function
         let map = Value.Model.get n model |> CCOpt.get_exn |> Value.Model.to_map in
           Value.FiniteMap.get index map |> CCOpt.get_exn
     end
-  | AST.BinaryOp (o, l, r) ->
-    o.Operation.value_encoding [evaluate model l; evaluate model r]
-  | AST.UnaryOp (o, e) ->
-    o.Operation.value_encoding [evaluate model e]
   (* the case for quantifiers *)
-  | AST.FunCall (f, args) when CCList.mem Operation.equivalent f Operation.Defaults.quantifiers ->
+  | AST.FunCall (f, args) when Operation.is_quantifier f ->
     (* this needs to be fixed *)
     Value.Boolean false
   (* the case for any other function *)
   | AST.FunCall (f, args) ->
-    f.Operation.value_encoding (CCList.map (evaluate model) args)
+    let op = match Operation.find_op f with
+      | Some op -> op
+      | None -> Operation.mk_op f (CCList.length args) in
+    op.Operation.value_encoding (CCList.map (evaluate model) args)
 
 (* for encoding *)
 module S = SMT.Default
@@ -42,14 +41,11 @@ let type_to_sort : Types.t -> S.Sort.t = function
 let rec encode (c : Types.Environment.t) : AST.expr -> S.Expr.t = function
   | AST.Literal l -> encode_literal l
   | AST.Identifier i -> encode_identifier c i
-  | AST.BinaryOp (o, l, r) ->
-    let l' = encode c l in
-    let r' = encode c r in
-      o.Operation.solver_encoding [l'; r']
-  | AST.UnaryOp (o, e) ->
-    o.Operation.solver_encoding [encode c e]
   | AST.FunCall (f, args) ->
-    f.Operation.solver_encoding (CCList.map (encode c) args)
+    let op = match Operation.find_op f with
+      | Some op -> op
+      | None -> Operation.mk_op f (CCList.length args) in
+    op.Operation.solver_encoding (CCList.map (encode c) args)
 and encode_literal : AST.lit -> S.Expr.t = function
   | AST.Rational q -> begin match q with
       | Rational.Q (n, d) -> S.Expr.rational n d

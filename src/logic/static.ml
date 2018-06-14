@@ -30,17 +30,11 @@ let rec infer (env : E.t) (e : A.expr) : Types.t option = match e with
           | Some (Types.Indexed (d, c)) -> if check env i c then Some d else None
           | _ -> None
     end
-  | A.BinaryOp (o, l, r) -> begin match o.Operation.signature with
-      | Types.Function ([a; b], x) ->
-        if (check env l a) && (check env r b) then Some x else None
-      | _ -> None
-    end
-  | A.UnaryOp (o, e) -> begin match o.Operation.signature with
-      | Types.Function ([a], x) ->
-        if check env e a then Some x else None
-      | _ -> None
-    end
-  | A.FunCall (f, args) -> begin match f.Operation.signature with
+  | A.FunCall (f, args) -> 
+    let op = match Operation.find_op f with
+      | Some op -> op
+      | None -> Operation.mk_op f (CCList.length args) in
+    begin match op.Operation.signature with
       | Types.Function (xs, x) ->
         if CCList.for_all (fun (e, t) -> check env e t) (CCList.combine args xs) then Some x else None
       | _ -> None
@@ -76,37 +70,22 @@ let rec type_constraints (e : A.expr) : Types.t * C.t = match e with
         let (t, c) = type_constraints i in
           (dom, (codom =:= t) <&> (a =:= Types.Indexed (dom, codom)))
       end
-    | A.BinaryOp (o, l, r) -> begin match o.Operation.signature with
-        | Types.Function ([x;y], z) ->
-          let (lt, lc) = type_constraints l in
-          let (rt, rc) = type_constraints r in
-            (z, (lt =:= x) <&> (rt =:= y) <&> lc <&> rc)
-        | _ ->
-          let o' = Name.to_string o.Operation.name in
-          let err = TypeMismatch (o' ^ " has non-binary function type") in
-            raise err
-      end
-    | A.UnaryOp (o, e) -> begin match o.Operation.signature with
-        | Types.Function ([x], z) ->
-          let (et, ec) = type_constraints e in
-            (z, (et =:= x) <&> ec)
-        | _ ->        
-          let o' = Name.to_string o.Operation.name in
-          let err = TypeMismatch (o' ^ " as non-unary function type") in
-            raise err
-      end
-    | A.FunCall (f, args) -> begin match f.Operation.signature with
+    | A.FunCall (f, args) -> 
+      let op = match Operation.find_op f with
+        | Some op -> op
+        | None -> Operation.mk_op f (CCList.length args) in
+      begin match op.Operation.signature with
         | Types.Function (xs, x) ->
           let (at, ac) = CCList.split @@ CCList.map type_constraints args in
           let eq_c = try
             CCList.map2 (=:=) at xs
             with Invalid_argument _ ->
-              let f' = Name.to_string f.Operation.name in
+              let f' = Name.to_string f in
               let err = TypeMismatch (f' ^ " has incorrect arity") in
                 raise err
           in (x, CCList.flatten (ac @ eq_c))
         | _ ->
-          let f' = Name.to_string f.Operation.name in
+          let f' = Name.to_string f in
           let err = TypeMismatch (f' ^ " has non-function type") in
             raise err
       end
@@ -119,8 +98,6 @@ let id_to_name : A.id -> Name.t = function
 let rec vars_in_expr : A.expr -> Name.t list = function
   | A.Literal _ -> []
   | A.Identifier i -> [id_to_name i]
-  | A.BinaryOp (_, l, r) -> (vars_in_expr l) @ (vars_in_expr r)
-  | A.UnaryOp (_, e) -> vars_in_expr e
   | A.FunCall (_, args) -> CCList.flat_map vars_in_expr args
 
 let rec modified_variables : A.t -> Name.t list = function

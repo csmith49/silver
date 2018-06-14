@@ -2,12 +2,13 @@
 open Name.Infix
 
 (* edges maintain the operation performed while moving from state to state *)
-module Edge = struct
+module Label = struct
   type t =
     | Assume of AST.expr
     | Assign of AST.id * AST.expr
     | Draw of AST.id * AST.expr
 
+  (* printing *)
   let to_string : t -> string = function
     | Assume e -> AST.expr_to_string e
     | Assign (i, e) ->
@@ -18,25 +19,29 @@ module Edge = struct
       let i' = AST.id_to_string i in
       let e' = AST.expr_to_string e in
         i' ^ " ~ " ^ e'
+
+  (* equality check *)
+  let eq = (=)
 end
 
-(* nodes maintain a unique id - name.t, in this case - and a list of tags representing pertinent info *)
+(* tags are used to indicate where we might consider merging or adding back edges *)
 module Tag = struct
-  type t =
-    | LoopHead
-    | Branch
+  type t = Loop | Branch
 
+  (* printing *)
   let to_string : t -> string = function
-    | LoopHead -> "LOOP"
+    | Loop -> "LOOP"
     | Branch -> "BRANCH"
 end
 
-module Node = struct
+(* nodes maintain a unique id - name.t, in this case - and a list of tags representing pertinent info *)
+module State = struct
   type t = {
     id : Name.t;
     tags : Tag.t list;
   }
     
+  (* printing *)
   let to_string : t -> string = fun n -> 
     let id = Name.to_string n.id in
     let tags = n.tags
@@ -44,8 +49,10 @@ module Node = struct
       |> CCString.concat "/" in
     if tags = "" then id else id ^ "[" ^ tags ^ "]"
 
+  (* we make states unique when we can *)
   let counter = ref 0
 
+  (* hierarchical names in action *)
   let extend (n : t) (s : string) : t =
     let i = !counter in
     let _ = counter := i + 1 in
@@ -54,53 +61,56 @@ module Node = struct
       tags = [];
     }
 
+  (* printing *)
   let of_string : string -> t = fun s -> {
     id = Name.of_string s;
     tags = [];
   }
 
+  (* add a tag to the list *)
   let set_tag : Tag.t -> t -> t = fun tag -> fun n -> {
     n with tags = tag :: n.tags;
   }
+
+  (* comparisons to simplify stuff later *)
+  let eq = (=)
 end
 
-type t = (Node.t, Edge.t) Automata.t
+(* our graph representation - critical for constructing the structure below *)
+type graph = (State.t, Label.t) Graph.t
+type path = (State.t, Label.t) Graph.Path.t
+type t = (State.t, Label.t) Automata.t
 
-(* a utility for later *)
-let path_to_string : (Node.t, Edge.t) Graph.Path.t -> string =
-  Graph.Path.pp Node.to_string Edge.to_string
-let summary : t -> string = Automata.summary Node.to_string Edge.to_string
-
-
-let rec graph_of_ast (ast : AST.t) (n : Node.t) : Node.t * (Node.t, Edge.t) Graph.t = match ast with
+(* construction *)
+let rec graph_of_ast (ast : AST.t) (n : State.t) : State.t * graph = match ast with
   | AST.Assign (i, e) ->
-    let fresh_n = Node.extend n "assign" in
-    let fresh_edge = Edge.Assign (i, e) in
-    let delta = fun s -> if s = fresh_n then [(fresh_edge, n)] else [] in
+    let fresh_n = State.extend n "assign" in
+    let fresh_edge = Label.Assign (i, e) in
+    let delta = fun s -> if State.eq s fresh_n then [(fresh_edge, n)] else [] in
       (fresh_n, delta)
   | AST.Draw (i, e) ->
-    let fresh_n = Node.extend n "draw" in
-    let fresh_edge = Edge.Draw (i, e) in
-    let delta = fun s -> if s = fresh_n then [(fresh_edge, n)] else [] in
+    let fresh_n = State.extend n "draw" in
+    let fresh_edge = Label.Draw (i, e) in
+    let delta : graph = fun s -> if State.eq s fresh_n then [(fresh_edge, n)] else [] in
       (fresh_n, delta)
   | AST.ITE (b, l, r) ->
     let (ln, lg) = graph_of_ast l n in
     let (rn, rg) = graph_of_ast r n in
-    let fresh_n = Node.extend n "ite" |> Node.set_tag Tag.Branch in
-    let true_edge = Edge.Assume b in
-    let false_edge = Edge.Assume (AST.UnaryOp (Operation.Defaults.not_, b)) in
+    let fresh_n = State.extend n "ite" |> State.set_tag Tag.Branch in
+    let true_edge = Label.Assume b in
+    let false_edge = Label.Assume (AST.FunCall (Name.of_string "Not", [b])) in
     let delta = (fun s ->
       let old_edges = (lg s) @ (rg s) in
-      if s = fresh_n then [(true_edge, ln); (false_edge, rn)] @ old_edges else old_edges) in
+      if State.eq s fresh_n then [(true_edge, ln); (false_edge, rn)] @ old_edges else old_edges) in
         (fresh_n, delta)
   | AST.While (b, e) ->
-    let fresh_n = Node.extend n "while" |> Node.set_tag Tag.LoopHead in
+    let fresh_n = State.extend n "while" |> State.set_tag Tag.Loop in
     let (en, eg) = graph_of_ast e fresh_n in
-    let loop_edge = Edge.Assume b in
-    let exit_edge = Edge.Assume (AST.UnaryOp (Operation.Defaults.not_, b)) in
+    let loop_edge = Label.Assume b in
+    let exit_edge = Label.Assume (AST.FunCall (Name.of_string "Not", [b])) in
     let delta = (fun s ->
       let old_edges = eg s in
-      if s = fresh_n then [(loop_edge, en); (exit_edge, n)] @ old_edges else old_edges) in
+      if State.eq s fresh_n then [(loop_edge, en); (exit_edge, n)] @ old_edges else old_edges) in
         (fresh_n, delta)
   | AST.Block xs -> begin match xs with
       | [] ->
@@ -115,12 +125,15 @@ let rec graph_of_ast (ast : AST.t) (n : Node.t) : Node.t * (Node.t, Edge.t) Grap
 
 (* using the graph construction, we can now build up the program automata *)
 let of_ast : AST.t -> t = fun ast -> 
-  let final = Node.of_string "finish" in
-  let (init, delta) = graph_of_ast ast final in
+  let final = State.of_string "finish" in
+  let (start, delta) = graph_of_ast ast final in
   {
     Automata.states = 
-      CCList.sort_uniq Pervasives.compare (Graph.reachable [init] delta);
-    start = init;
+      CCList.sort_uniq Pervasives.compare (Graph.reachable ~v_eq:State.eq [start] delta);
+    start = start;
     delta = delta;
-    accepting = [final];
+    final = [final];
   }
+
+(* printing *)
+let to_string : t -> string = Automata.to_string State.to_string Label.to_string

@@ -155,7 +155,7 @@ module Defaults = struct
     solver_encoding = lift_binary S.Expr.and_;
   }
   let or_ = {
-    name = Name.of_string "And";
+    name = Name.of_string "Or";
     symbol = "|";
     signature = f [boolean ; boolean] boolean;
     value_encoding = lift_binary (fun v -> fun w ->
@@ -175,7 +175,7 @@ module Defaults = struct
   let logical = [and_; or_; implies]
 
   let exists = {
-    name = Name.of_string "exists";
+    name = Name.of_string "Exists";
     symbol = "exists";
     signature = f [rational; boolean] boolean;
     value_encoding = lift_unary (fun _ -> raise Encoding_error);
@@ -184,7 +184,7 @@ module Defaults = struct
       | _ -> raise Encoding_error;
   }
   let forall = {
-    name = Name.of_string "forall";
+    name = Name.of_string "ForAll";
     symbol = "forall";
     signature = f [rational; boolean] boolean;
     value_encoding = lift_unary (fun _ -> raise Encoding_error);
@@ -220,17 +220,21 @@ module Defaults = struct
   let defined = unary @ arithmetic @ comparisons @ logical @ distributions @ complicated @ quantifiers
 end
 
-(* and a method to find ones with matching names *)
-let find_op (n : Name.t) : t option =
-  CCList.find_opt (fun o -> o.name = n) Defaults.defined
-
-let mk_op (f : Name.t) (n : int) : t = 
-  let mk_var = fun i -> Types.Variable (Name.extend f (string_of_int i)) in 
-  let range = CCList.range 1 n in
-  {
+(* constructing simple ones on the fly *)
+let mk_op (f : Name.t) (n : int) : t =
+  let mk_var = fun i ->
+    Types.Variable (Name.extend f (string_of_int i)) in
+  let range = CCList.range 1 n in {
     name = f;
     symbol = Name.to_string f;
     signature = Types.Function (CCList.map mk_var range, mk_var 0);
     value_encoding = lift_unary (fun _ -> raise Encoding_error);
     solver_encoding = fun xs -> raise Encoding_error;
   }
+
+(* and a method to find ones with matching names *)
+let find_op (n : Name.t) : t option =
+  CCList.find_opt (fun o -> o.name = n) Defaults.defined
+
+(* check if a name corresponds to a quantifier *)
+let is_quantifier : Name.t -> bool = fun n -> CCList.mem (=) n (CCList.map (fun o -> o.name) Defaults.quantifiers)

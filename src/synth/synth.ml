@@ -42,13 +42,6 @@ let rec extract_symbols ?(prefix=Name.of_string "") :
       let i' = update_id prefix i in
       let s = Symbol.of_id i in
         (AST.Identifier i', [(i', s)])
-    | AST.BinaryOp (o, l, r) ->
-      let l', ls = extract_symbols ~prefix:(Name.extend prefix "left") l in
-      let r', rs = extract_symbols ~prefix:(Name.extend prefix "right") r in
-        (AST.BinaryOp (o, l', r'), ls @ rs)
-    | AST.UnaryOp (o, e) ->
-      let e', es = extract_symbols ~prefix:prefix e in
-        (AST.UnaryOp (o, e'), es)
     | AST.FunCall (f, args) ->
       let range = CCList.range 1 (CCList.length args) in
       let args', ss = args

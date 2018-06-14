@@ -1,105 +1,111 @@
-open CCOpt.Infix
-
-(* a graph is represented by the successor function *)
+(* graphs are represented by the child relation *)
 type ('v, 'e) t = 'v -> ('e * 'v) list
 
 module Path = struct
-  (* while paths are lists of v --e-> v tuples *)
-  type ('v, 'e) step = ('v * 'e * 'v)
+  (* steps are effectively elements in the transition relation *)
+  type ('v, 'e) step = 'v * 'e * 'v
 
+  (* and paths are lists of steps *)
   type ('v, 'e) t = ('v, 'e) step list
 
-  (* printing depends on the printing for 'v and 'e - provided, we can make a printer *)
-  let pp (vertex_to_string : 'v -> string) (edge_to_string : 'e -> string) : ('v, 'e) t -> string =
-    let rec print = fun p -> match p with
-      | [] -> "ε"
-      | (s, l, d) :: [] -> (vertex_to_string s) ^ " --(" ^ (edge_to_string l) ^ ")-> " ^ (vertex_to_string d)
-      | (s, l, _) :: rest -> (vertex_to_string s) ^ " --(" ^ (edge_to_string l) ^ ")-> " ^ (print rest)
-      in print
+  (* printer - need helper functions *)
+  let rec to_string (vp : 'v -> string) (ep : 'e -> string) : ('v, 'e) t -> string = function
+    | [] -> "ε"
+    | (src, lbl, dest) :: [] ->
+      (vp src) ^ "--{" ^ (ep lbl) ^ "}->" ^ (vp dest)
+    | (src, lbl, _) :: rest ->
+    (vp src) ^ "--{" ^ (ep lbl) ^ "}->" ^ (to_string vp ep rest)
 
-  (* if we just want the sequence of statements, we're in luck *)
-  let to_word (p : (_, 'e) t) : 'e list = CCList.map (fun (_, l,_) -> l) p
-  
-  (* getting the states is just as easy *)
-  let rec to_states (p : ('v, _) t) : 'v list = match p with
+  (* convert path to list of labels *)
+  let rec to_word : ('v, 'e) t -> 'e list = function
     | [] -> []
-    | (s, l, d) :: [] -> [s; d]
-    | (s, l, _) :: rest -> s :: (to_states rest)
+    | (_, lbl, _) :: rest -> lbl :: (to_word rest)
 
-  (* we really should represent paths backwards, but that's confusing *)
-  let extend (p : ('v, 'e) t) (e : ('v, 'e) step) : ('v, 'e) t = p @ [e]
+  (* convert path to list of states - note the lack of double-counting *)
+  let rec to_states : ('v, 'e) t -> 'v list = function
+    | [] -> []
+    | (src, _, dest) :: [] -> [src ; dest]
+    | (src, _, _) :: rest -> src :: (to_states rest)
+  
+  (* concat a step at the end of a path *)
+  let extend : ('v, 'e) t -> ('v, 'e) step -> ('v, 'e) t = 
+    fun path -> fun step -> path @ [step]
 
-  (* of course, a step is basically a mini path with a diff. type to enforce incrementality *)
+  (* convert a step to a really short path *)
   let of_step : ('v, 'e) step -> ('v, 'e) t = fun s -> [s]
 
-  (* we can tell if a path loops by checking for duplication in the states *)
-  let has_loop (p : ('v, _) t) : bool =
-    let rec contains_duplicates : 'a list -> bool = function
+  (* check if a path visits any state more than once *)
+  let has_loop ?(v_eq = (=)) : ('v, 'e) t -> bool = fun path ->
+    let rec contains_duplicates vertices = match vertices with
       | [] -> false
-      | x :: xs -> if List.mem x xs then true else contains_duplicates xs
-    in p |> to_states |> contains_duplicates
+      | v :: vs -> if CCList.mem ~eq:v_eq v vs
+        then true 
+        else contains_duplicates vs in
+    path |> to_states |> contains_duplicates
 
-  (* mapping happens over states *)
-  let map (f : 'v -> 'w) (p : ('v, 'e) t) : ('w, 'e) t =
-    let map_step = fun (s, l, d) -> (f s, l, f d) in
-      CCList.map map_step p
+  (* mapping a path happens over states *)
+  let rec map (f : 'v -> 'w) : ('v, 'e) t -> ('w, 'e) t = function
+    | [] -> []
+    | (src, lbl, dest) :: rest ->
+      (f src, lbl, f dest) :: (map f rest)
 end
 
-(* we can also think of paths as graphs in a very natural way *)
-let of_path (p : ('v, 'e) Path.t) : ('v, 'e) t = fun v ->
-  CCList.filter_map (fun (s, l, d) -> if v = s then Some (l, d) else None) p
+(* construct a graph from a path *)
+let of_path ?(v_eq = (=)) : ('v, 'e) Path.t -> ('v, 'e) t = fun path -> fun v -> path
+  |> CCList.filter_map (fun (src, lbl, dest) -> if v_eq src v then Some (lbl, dest) else None)
 
-(* functions over graphs must be structure-preserving: when we map, we must be able to invert *)
-(* the correctness of the inversion is left to the user - there is no guarantee *)
-let map (f : 'v -> 'n) (h : 'n -> 'v) (g : ('v, 'e) t) : ('n, 'e) t = fun n -> 
-  n |> h |> g |> CCList.map (CCPair.map2 f)
+(* path manipulations with graphs *)
+let step (v : 'v) (g : ('v, 'e) t) : ('v, 'e) Path.step list = 
+  v |> g |> CCList.map (fun (lbl, dest) -> (v, lbl, dest))
 
-(* for map2, we need projections to the components of the preimage *)
-let map2 (f : 'a -> 'b -> 'c) (x : 'c -> 'a) (y : 'c -> 'b) (g : ('a, 'e) t) (h : ('b, 'e) t) : ('c, 'e) t = fun n ->
-  let a_edges = n |> x |> g in let b_edges = n |> y |> h in a_edges
-    |> CCList.flat_map (fun a -> CCList.map (fun b -> (a, b)) b_edges)
-    |> CCList.filter_map (fun ((le, a), (re, b)) -> if le = re then Some (le, f a b) else None)
-
-(* the simplest instantiation of map2 just pairs up the result *)
-let product (g : ('v, 'e) t) (h : ('n, 'e) t) : ('v * 'n, 'e) t =
-  map2 (fun x -> fun y -> (x, y)) fst snd g h
-
-(* utility-wise, we really only require bfs *)
-(* this requires a few helper functions *)
-let step (n : 'v) (g : ('v, 'e) t) : ('v, 'e) Path.step list =
-  n |> g |> CCList.map (fun (l, d) -> (n, l, d))
-
-let extend_path (p : ('v, 'e) Path.t) (g : ('v, 'e) t) : ('v, 'e) Path.t list = p
+let extend (path : ('v, 'e) Path.t) (g : ('v, 'e) t) : ('v, 'e) Path.t list = path
   |> Path.to_states |> CCList.last_opt (* get the last state *)
-  |> CCOpt.map (fun n -> step n g) |> CCOpt.to_list |> CCList.flatten (* turn to list of steps *)
-  |> CCList.map (Path.extend p) (* and extend *)
+  |> CCOpt.map (fun v -> step v g) |> CCOpt.to_list |> CCList.flatten (* turn to list of steps *)
+  |> CCList.map (Path.extend path) (* and extend *)
 
-(* bfs extends paths until it finds one reaching a destination *)
-(* paths with loops are dropped *)
-let bfs (source : 'v list) (dest : 'v list) (g : ('v, 'e) t) : ('v, 'e) Path.t option =
-  (* we use a recursive auxillary function that maintains paths *)
-  let rec aux : ('v, 'e) Path.t list -> ('v, 'e) Path.t option = fun ps ->
+(* compute the first path (if one exists) from source to dest *)
+let bfs ?(v_eq = (=)) (source : 'v list) (dest : 'v list) (g : ('v, 'e) t) : ('v, 'e) Path.t option =
+  (* use an aux function that maintains paths *)
+  let rec aux = fun paths ->
     (* find if anything is currently reaching the destination *)
-    let reaches_dest: ('v, 'e) Path.t -> bool = fun p -> p
-      |> Path.to_states |> CCList.last_opt |> CCOpt.exists (fun n -> List.mem n dest) in
-    match CCList.find_opt reaches_dest ps with
-      | Some p -> Some p
+    let reaches_dest = fun path -> path
+      |> Path.to_states |> CCList.last_opt 
+      |> CCOpt.exists (fun v -> CCList.mem v_eq v dest) in
+    match CCList.find_opt reaches_dest paths with
+      | Some path -> Some path
       | None ->
-        (* extend the paths and filter those with loops *)
-        let loop_free_paths = ps
-          |> CCList.flat_map (fun p -> extend_path p g)
-          |> CCList.filter (fun p -> not (Path.has_loop p)) in
+        (* extend the path and filter those with loops *)
+        let loop_free_paths = paths
+          |> CCList.flat_map (fun path -> extend path g)
+          |> CCList.filter (fun path -> not (Path.has_loop ~v_eq:v_eq path)) in
         (* maybe recurse *)
         if CCList.is_empty loop_free_paths then None else aux loop_free_paths in
-  (* generate the initial paths from source *)
-  let init_paths = source |> CCList.flat_map (fun n -> step n g) |> CCList.map Path.of_step in
-    (* and do the thing *)
+  (* generate the initial paths out of source *)
+  let init_paths = source |> CCList.flat_map (fun v -> step v g) |> CCList.map Path.of_step in
     aux init_paths
 
-(* we also care about some minor reachability *)
-let rec reachable (init : 'v list) (g  : ('v, _) t) : 'v list =
-  let step_reachable = init
-    |> CCList.flat_map (fun n -> step n g)
-    |> CCList.map (fun (_, _, d) -> d) in
-  let unseen_states = CCList.filter (fun n -> not (List.mem n init)) step_reachable in
-  if CCList.is_empty unseen_states then init else reachable (init @ unseen_states) g
+(* compute the set of states reachable from source *)
+let rec reachable ?(v_eq = (=)) (source : 'v list) (g : ('v, 'e) t) : 'v list =
+  let step_reachable = source
+    |> CCList.flat_map (fun v -> step v g)
+    |> CCList.map (fun (_, _, dest) -> dest) in
+  let unseen_states = 
+    CCList.filter (fun v -> not (CCList.mem v_eq v source)) step_reachable in
+  if CCList.is_empty unseen_states then source else reachable (source @ unseen_states) g
+
+(* to help divine the og structure, maps need inverses *)
+let map (f : 'v -> 'w) (f' : 'w -> 'v) (g : ('v, 'e) t) : ('w, 'e) t = fun w -> w
+  |> f' |> g |> CCList.map (fun (lbl, dest) -> (lbl, f dest))
+
+(* and map2 needs inverse projections, as well as an edge equality operation *)
+let map2 ?(e_eq = (=)) (f : 'a -> 'b -> 'c) (x : 'c -> 'a) (y : 'c -> 'b) (g : ('a, 'e) t) (h : ('b, 'e) t) : ('c, 'e) t =
+  fun c ->
+    let a_edges = c |> x |> g in
+    let b_edges = c |> y |> h in a_edges
+      |> CCList.flat_map (fun  a -> CCList.map (CCPair.make a) b_edges)
+      |> CCList.filter_map (fun ((le, a), (re, b)) ->
+        if e_eq le re then Some (le, f a b) else None)
+
+(* the simplest instantiation of map2 is the product construction *)
+let product ?(e_eq = (=)) (g : ('v, 'e) t) (h : ('w, 'e) t) : ('v * 'w, 'e) t =
+  map2 ~e_eq:e_eq CCPair.make fst snd g h
