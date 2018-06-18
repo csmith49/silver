@@ -109,3 +109,14 @@ let map2 ?(e_eq = (=)) (f : 'a -> 'b -> 'c) (x : 'c -> 'a) (y : 'c -> 'b) (g : (
 (* the simplest instantiation of map2 is the product construction *)
 let product ?(e_eq = (=)) (g : ('v, 'e) t) (h : ('w, 'e) t) : ('v * 'w, 'e) t =
   map2 ~e_eq:e_eq CCPair.make fst snd g h
+
+(* minor construction utilities *)
+let of_edge ?(v_eq = (=)) (edge : 'v * 'e * 'v) : ('v, 'e) t =
+  let src, lbl, dest = edge in fun v -> if v_eq v src then [(lbl, dest)] else []
+
+let merge (g : ('v, 'e) t) (h : ('v, 'e) t) : ('v, 'e) t = fun v -> (g v) @ (h v)
+
+(* mapping edges is sooooo much easier than states - no inverse needed *)
+let map_edge (f : 'e -> 'f) (g : ('v, 'e) t) : ('v, 'f) t = fun n -> n
+  |> g
+  |> CCList.map (CCPair.map1 f)

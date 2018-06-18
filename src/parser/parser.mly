@@ -99,22 +99,22 @@ identifier:
 
 /* the operations */
 %inline unary_op:
-  | NOT { Name.of_string "Not" }
-  | MINUS { Name.of_string "Negative" }
+  | NOT { Name.of_string "not" }
+  | MINUS { Name.of_string "negative" }
 %inline binary_op:
-  | PLUS { Name.of_string "Plus" }
-  | MULT { Name.of_string "Mult" }
-  | DIV  { Name.of_string "Div" }
-  | MINUS { Name.of_string "Minus" }
-  | EQ { Name.of_string "Eq" }
-  | NEQ { Name.of_string "NEq" }
-  | LEQ { Name.of_string "LEq" }
-  | GEQ { Name.of_string "GEq" }
-  | LT { Name.of_string "LT" }
-  | GT { Name.of_string "GT" }
-  | AND { Name.of_string "And" }
-  | OR { Name.of_string "Or" }
-  | IMPLIES { Name.of_string "Implies" }
+  | PLUS { Name.of_string "plus" }
+  | MULT { Name.of_string "mult" }
+  | DIV  { Name.of_string "div" }
+  | MINUS { Name.of_string "minus" }
+  | EQ { Name.of_string "eq" }
+  | NEQ { Name.of_string "neq" }
+  | LEQ { Name.of_string "leq" }
+  | GEQ { Name.of_string "geq" }
+  | LT { Name.of_string "lt" }
+  | GT { Name.of_string "gt" }
+  | AND { Name.of_string "and" }
+  | OR { Name.of_string "or" }
+  | IMPLIES { Name.of_string "implies" }
 
 /* a simplifying macro for above */
 %public plist(X):
@@ -126,8 +126,8 @@ annotation:
 
 quantified_expression:
   | q = quantifier; i = NAME; PERIOD; e = expression { match q with
-    | AST.Exists -> AST.FunCall (Name.of_string "Exists", [AST.Identifier (AST.Var i); e])
-    | AST.ForAll -> AST.FunCall (Name.of_string "ForAll", [AST.Identifier (AST.Var i); e])}
+    | AST.Exists -> AST.FunCall (Name.of_string "exists", [AST.Identifier (AST.Var i); e])
+    | AST.ForAll -> AST.FunCall (Name.of_string "forall", [AST.Identifier (AST.Var i); e])}
   | e = expression { e }
 
 %inline quantifier:

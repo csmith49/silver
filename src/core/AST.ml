@@ -94,31 +94,31 @@ let rec to_string : t -> string = function
 
 module Infix = struct
   let ( =. ) (l : expr) (r : expr) : expr =
-    FunCall (Name.of_string "Eq", [l ; r])
+    FunCall (Name.of_string "eq", [l ; r])
 
   let ( !. ) (e : expr) : expr =
-    FunCall (Name.of_string "Not", [e])
+    FunCall (Name.of_string "not", [e])
   
   let ( &. ) (l : expr) (r : expr) : expr =
-    FunCall (Name.of_string "And", [l ; r])
+    FunCall (Name.of_string "and", [l ; r])
 
   let ( |. ) (l : expr) (r : expr) : expr =
-    FunCall (Name.of_string "Or", [l ; r])
+    FunCall (Name.of_string "or", [l ; r])
 
   let ( +. ) (l : expr) (r : expr) : expr =
-    FunCall (Name.of_string "Plus", [l ; r])
+    FunCall (Name.of_string "plus", [l ; r])
 
   let ( =>. ) (l : expr) (r : expr) : expr =
-    FunCall (Name.of_string "Implies", [l ; r])
+    FunCall (Name.of_string "implies", [l ; r])
 
   let ( <= ) (l : expr) (r : expr) : expr =
-    FunCall (Name.of_string "LEq", [l ; r])
+    FunCall (Name.of_string "leq", [l ; r])
 
   let ( >= ) (l : expr) (r : expr) : expr =
-    FunCall (Name.of_string "GEq", [l ; r])
+    FunCall (Name.of_string "geq", [l ; r])
 
   let ( > ) (l : expr) (r : expr) : expr =
-    FunCall (Name.of_string "GT", [l ; r])
+    FunCall (Name.of_string "gt", [l ; r])
 
   let var : string -> expr = fun s ->
     Identifier (Var (Name.of_string s))

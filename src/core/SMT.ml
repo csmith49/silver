@@ -33,6 +33,7 @@ module Make = functor (C : CONTEXT) -> struct
     let or_ (l : t) (r : t) : t = Z3.Boolean.mk_or C.context [l; r]
     let not : t -> t = Z3.Boolean.mk_not C.context
     let implies (l : t) (r : t) : t = Z3.Boolean.mk_implies C.context l r
+    let ite (c : t) (l : t) (r : t) : t = Z3.Boolean.mk_ite C.context c l r
 
     (* comparisons *)
     let eq : t -> t -> t = Z3.Boolean.mk_eq C.context

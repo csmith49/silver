@@ -74,11 +74,17 @@ module State = struct
 
   (* comparisons to simplify stuff later *)
   let eq = (=)
+
+  (* the canonical dump state *)
+  let dump : t = {
+    id = Name.of_string "dump";
+    tags = [];
+  }
 end
 
 (* our graph representation - critical for constructing the structure below *)
 type graph = (State.t, Label.t) Graph.t
-type path = (State.t, Label.t) Graph.Path.t
+type path = (State.t, Label.t) Automata.concrete_path
 type t = (State.t, Label.t) Automata.t
 
 (* construction *)
@@ -98,7 +104,7 @@ let rec graph_of_ast (ast : AST.t) (n : State.t) : State.t * graph = match ast w
     let (rn, rg) = graph_of_ast r n in
     let fresh_n = State.extend n "ite" |> State.set_tag Tag.Branch in
     let true_edge = Label.Assume b in
-    let false_edge = Label.Assume (AST.FunCall (Name.of_string "Not", [b])) in
+    let false_edge = Label.Assume (AST.FunCall (Name.of_string "not", [b])) in
     let delta = (fun s ->
       let old_edges = (lg s) @ (rg s) in
       if State.eq s fresh_n then [(true_edge, ln); (false_edge, rn)] @ old_edges else old_edges) in
@@ -107,7 +113,7 @@ let rec graph_of_ast (ast : AST.t) (n : State.t) : State.t * graph = match ast w
     let fresh_n = State.extend n "while" |> State.set_tag Tag.Loop in
     let (en, eg) = graph_of_ast e fresh_n in
     let loop_edge = Label.Assume b in
-    let exit_edge = Label.Assume (AST.FunCall (Name.of_string "Not", [b])) in
+    let exit_edge = Label.Assume (AST.FunCall (Name.of_string "not", [b])) in
     let delta = (fun s ->
       let old_edges = eg s in
       if State.eq s fresh_n then [(loop_edge, en); (exit_edge, n)] @ old_edges else old_edges) in
@@ -131,7 +137,7 @@ let of_ast : AST.t -> t = fun ast ->
     Automata.states = 
       CCList.sort_uniq Pervasives.compare (Graph.reachable ~v_eq:State.eq [start] delta);
     start = start;
-    delta = delta;
+    delta = Graph.map_edge Automata.Symbol.lift delta;
     final = [final];
   }
 
