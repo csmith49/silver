@@ -23,7 +23,10 @@ let post_to_constraint (trace : trace) : AST.annotation -> Constraint.t = fun an
   let expr = ((var "beta") >= (int 0)) &. 
     (!. (((var_i ("w", i) <= (var "beta"))) &.
     ((!. (var_i ("h", i))) =>. annot))) in
-      Constraint.of_expr env (Simplify.simplify expr)
+  expr
+    |> Simplify.simplify
+    |> fun e -> Trace.SSA.update_expr e env
+    |> Constraint.of_expr env
 
 (*  *)
 let check

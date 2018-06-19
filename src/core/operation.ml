@@ -219,7 +219,16 @@ module Defaults = struct
       let uif = S.F.mk "lap" [S.Sort.rational] S.Sort.rational in
         fun xs -> S.F.apply uif xs;
   }
-  let distributions = [lap]
+  let bern = {
+    name = Name.of_string "bern";
+    symbol = "bern";
+    signature = f [rational] boolean;
+    value_encoding = lift_unary (fun x -> Value.Boolean true);
+    solver_encoding =
+      let uif = S.F.mk "bern" [S.Sort.rational] S.Sort.boolean in
+        fun xs -> S.F.apply uif xs;
+  }
+  let distributions = [lap; bern]
 
   (* and the annoying ones we have to deal with *)
   let log = {

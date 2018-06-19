@@ -23,7 +23,7 @@ let abstraction = ref Abstraction.init in
 let finished = ref false in
 
 let strategy = Trace.beta_strat in
-let d_axioms = Probability.Laplace.all in
+let d_axioms = Probability.Laplace.all @ Probability.Bernoulli.all in
 
 let _ = printf "@[<v>[TRACES]@;@]" in
 
