@@ -19,11 +19,20 @@ let of_string (s : string) : t =
     counter = counter;
   }
 
+(* stringing *)
 let to_string : t -> string = fun n ->
   let h = if n.hash = 0 then "" else ":" ^ (string_of_int n.hash) in
   let i = if n.counter = 0 then "" else "_" ^ (string_of_int n.counter) in
     (n.id) ^ i ^ h
-  
+
+(* formatting *)
+let rec format f = fun n -> 
+  CCFormat.fprintf f "%s%a%a" n.id format_counter n.counter format_hash n.hash
+and format_counter f = fun c -> if c = 0 then CCFormat.fprintf f "" else
+  CCFormat.fprintf f "_%d" c
+and format_hash f = fun h -> if h = 0 then CCFormat.fprintf f "" else
+  CCFormat.fprintf f ":%d" h
+
 let to_tuple : t -> (string * int * int) = fun n ->
   (n.id, n.hash, n.counter)
 

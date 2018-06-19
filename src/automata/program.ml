@@ -9,6 +9,13 @@ module Label = struct
     | Draw of AST.id * AST.expr
 
   (* printing *)
+  let format f = function
+    | Assume e -> AST.format f e
+    | Assign (i, e) ->
+      CCFormat.fprintf f "@[%a = %a@]" AST.format_id i AST.format e
+    | Draw (i, e) ->
+      CCFormat.fprintf f "@[%a ~ %a@]" AST.format_id i AST.format e
+
   let to_string : t -> string = function
     | Assume e -> AST.expr_to_string e
     | Assign (i, e) ->
@@ -32,6 +39,10 @@ module Tag = struct
   let to_string : t -> string = function
     | Loop -> "LOOP"
     | Branch -> "BRANCH"
+
+  let format f = function
+    | Loop -> CCFormat.fprintf f "LOOP"
+    | Branch -> CCFormat.fprintf f "BRANCH"
 end
 
 (* nodes maintain a unique id - name.t, in this case - and a list of tags representing pertinent info *)
@@ -49,6 +60,10 @@ module State = struct
       |> CCString.concat "/" in
     if tags = "" then id else id ^ "[" ^ tags ^ "]"
 
+  let format f = fun n ->
+    let tag_fmt = CCFormat.within "[" "]" (CCFormat.list ~sep:(CCFormat.return " /@ ") Tag.format) in
+    CCFormat.fprintf f "@[%a%a@]" Name.format n.id tag_fmt n.tags
+
   (* we make states unique when we can *)
   let counter = ref 0
 
@@ -61,7 +76,7 @@ module State = struct
       tags = [];
     }
 
-  (* printing *)
+  (* inverse printing *)
   let of_string : string -> t = fun s -> {
     id = Name.of_string s;
     tags = [];

@@ -21,10 +21,13 @@ module Defaults = struct
 
   let distribute_not_implication = mk "!(x => y)" "x & !y"
 
+  let inverse_of_inverse = mk "1/(1/x)" "x"
+
   (* these are the templates that will be applied *)
   (* we make no guarantee of confluence, termination, etc. *)
   (* but we assume the trs is normalizing below *)
   let all = [
+    inverse_of_inverse;
     not_idempotent; 
     distribute_not_and;
     distribute_not_or;

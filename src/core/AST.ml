@@ -35,6 +35,29 @@ type program = annotation * t * annotation
 let compare = Pervasives.compare
 let eq = (=)
 
+(* formatting and printing *)
+let rec format f : expr -> unit = function
+  | Literal l -> format_lit f l
+  | Identifier id -> format_id f id
+  | FunCall (op, args) ->
+    let f' = match Operation.find_op op with
+      | Some f -> f.Operation.symbol
+      | None -> CCFormat.to_string Name.format op in
+    match args with
+      | [] -> CCFormat.fprintf f "%s" f'
+      | [x] -> CCFormat.fprintf f "%s%a" f' format x
+      | x :: y :: [] -> CCFormat.fprintf f "@[<1>(%a@ %s@ %a)@]" format x f' format y
+      | rest -> CCFormat.fprintf f "@[%s(@[<1>%a@])@]" 
+        f' 
+        (CCFormat.list ~sep:(CCFormat.return ",@ ") format) rest
+and format_lit f : lit -> unit = function
+  | Rational q -> Rational.format f q
+  | Boolean b -> CCFormat.bool f b
+and format_id f : id -> unit = function
+  | Var n -> Name.format f n
+  | IndexedVar (n, i) ->
+    CCFormat.fprintf f "%a[%a]" Name.format n format i
+
 (* print statements *)
 
 let rec lit_to_string : lit -> string = function

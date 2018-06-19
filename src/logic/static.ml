@@ -147,6 +147,7 @@ let global_context : A.program -> E.t option = fun prog ->
   let ast_constraints = global_constraints ast in
   let pre_constraints = snd (type_constraints pre) in
   let post_constraints = snd (type_constraints post) in
+  let vars = (variables ast) @ (vars_in_expr pre) @ (vars_in_expr post) in
   ast_constraints @ pre_constraints @ post_constraints
     |> C.resolve
     >>= (fun sub ->
@@ -154,7 +155,7 @@ let global_context : A.program -> E.t option = fun prog ->
         let t = S.get (v <+ "type") sub in
           CCOpt.map2 (E.update v) t e)
       (Some E.empty)
-      (CCList.sort_uniq Name.compare (variables ast))
+      (CCList.sort_uniq Name.compare vars)
     )
 
 (* for expressions only *)

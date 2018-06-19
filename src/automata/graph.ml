@@ -16,6 +16,19 @@ module Path = struct
     | (src, lbl, _) :: rest ->
     (vp src) ^ "--{" ^ (ep lbl) ^ "}->" ^ (to_string vp ep rest)
 
+  let rec format vf ef f : ('v, 'e) t -> unit = function
+    | [] -> CCFormat.fprintf f "ε"
+    | x :: xs ->
+      CCFormat.fprintf f "@[<4>%a@;@[<v>%a@]@]" 
+        (format_step vf ef) x
+        (CCFormat.list ~sep:(CCFormat.return "@;") (format_short_step vf ef)) xs
+  and format_step vf ef f : ('v, 'e) step -> unit = function
+    (src, lbl, dest) -> CCFormat.fprintf f "@[%a ~{ %a }~@ %a@]" vf src ef lbl vf dest
+  and format_short_step vf ef f : ('v, 'e) step -> unit = function
+    (_, lbl, dest) -> CCFormat.fprintf f "~{ %a }~ %a" ef lbl vf dest
+
+
+
   (* convert path to list of labels *)
   let rec to_word : ('v, 'e) t -> 'e list = function
     | [] -> []

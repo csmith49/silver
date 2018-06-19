@@ -31,6 +31,8 @@ type t = {
   encoding : S.Expr.t;
 }
 
+let format f : t -> unit = fun c -> AST.format f c.expression
+
 let to_string : t -> string = fun c -> AST.expr_to_string c.expression
 
 let of_expr (m : Types.Environment.t) : AST.expr -> t = fun e -> {
@@ -39,6 +41,8 @@ let of_expr (m : Types.Environment.t) : AST.expr -> t = fun e -> {
 }
 
 type conjunction = t list
+
+let format_conjunction = CCFormat.list ~sep:(CCFormat.return "@ & @ ") format
 
 let conjunction_to_string : conjunction -> string = fun conj -> conj
   |> CCList.map to_string
@@ -58,6 +62,11 @@ module Answer = struct
   let is_unsat : t -> bool = function
     | Unsat -> true
     | _ -> false
+
+  let format f : t -> unit = function
+    | Sat m -> CCFormat.fprintf f "@[<v>SAT: @[<hov>%a@]@;@]" Value.Model.format m
+    | Unsat -> CCFormat.fprintf f "UNSAT"
+    | Unknown -> CCFormat.fprintf f "UNKNOWN"
 end
 
 let check : conjunction -> Answer.t = fun cs ->
@@ -76,20 +85,23 @@ let check : conjunction -> Answer.t = fun cs ->
 (* the payoff *)
 let vprint (v : bool) (s : string) : unit = if v then print_endline s else ()
 
+open CCFormat
+
 (* well, actually this *)
 let check_wrt_theory ?(verbose=false) (c : Types.Environment.t) : Theory.t -> conjunction -> Answer.t = 
   fun theory -> fun cs -> 
-    let _ = vprint verbose ("[THEORY] Checking " ^ (conjunction_to_string cs))
-    in match check cs with
+    let _ = if verbose then printf "@[<v>[THEORY/CHECKING]@; @[%a@]@;@]" format_conjunction cs else () in
+    match check cs with
     (* we have to check if we know we know *)
     | Answer.Sat model ->
       (* if the model is consistent with an actual evaluation, it's really a model *)
-      let _ = vprint verbose ("[THEORY] Satisfiable with model " ^ (Value.Model.to_string model)) in
+      let _ = if verbose then printf 
+        "@[<v>[THEORY/RESULT] Sat with model@; @[%a@]@;@]" Value.Model.format model else () in 
       let values = cs
         |> CCList.map (fun c -> c.expression)
         |> CCList.map (Cata.evaluate model) in
       if CCList.for_all (fun v -> v = (Value.of_bool true)) values then
-        let _ = vprint verbose ("[THEORY] Model consistent with evaluation.") in
+        let _ = if verbose then printf "[THEORY] Model consistent with evaluation.@;" else () in
         Answer.Sat model
       (* if not, we need to add some more info about the functions in the theory *)
       else let axioms = cs
@@ -101,13 +113,15 @@ let check_wrt_theory ?(verbose=false) (c : Types.Environment.t) : Theory.t -> co
         |> CCList.map (fun c -> c.expression)
         |> CCList.filter (fun c -> (Cata.evaluate model c) = (Value.of_bool false))
         |> CCList.hd in
-      let _ = vprint verbose 
-        ("[THEORY] Clause " ^ (AST.expr_to_string failure_clause) ^ " inconsistent with evaluation. Checking with " ^ (string_of_int num_axioms) ^ " enumerated axioms.") in
+      let _ = if verbose then printf
+        "[THEORY/RESULT] Clause %a inconsistent with evaluation. Checking with %d axioms." 
+          AST.format failure_clause 
+          num_axioms else () in
       let answer = check (cs @ axioms) in
-      let _ = vprint verbose
-        ("[THEORY] Result is " ^ (Answer.to_string answer)) in
+      let _ = if verbose then printf 
+        "[THEORY/RESULT] Result is %a.@;" Answer.format answer else () in
       answer
     | _ as answer ->
-      let _ = vprint verbose 
-        ("[THEORY] Result is " ^ (Answer.to_string answer)) in
+      let _ = if verbose then printf
+        "[THEORY] Result is %a.@;" Answer.format answer else () in
       answer

@@ -3,6 +3,8 @@
 module Number = struct
   type t = CCFloat.t
 
+  let format = CCFormat.float3
+
   let to_string : t -> string = string_of_float
 end
 
@@ -11,6 +13,12 @@ type t =
   | Boolean of bool
 
 exception Cast_error of string
+
+let format f : t -> unit = function
+  | Number n -> Number.format f n
+  | Boolean b -> CCFormat.bool f b
+(* minor alias for later *)
+let format_value = format
 
 let to_string : t -> string = function
   | Number n -> Number.to_string n
@@ -44,6 +52,13 @@ module FiniteMap = struct
 
   let of_list = ValueMap.of_list
 
+  let rec format f : t -> unit = fun m ->
+    CCFormat.fprintf f "@[{@[<hov>%a@]@]" 
+      (CCFormat.list ~sep:(CCFormat.return ",@ ") format_entry) 
+      (m |> ValueMap.to_list)
+  and format_entry f = fun (k, v) ->
+    CCFormat.fprintf f "@[%a@ =>@ %a@]@;" format_value k format_value v
+
   let to_string : t -> string = fun m -> m
     |> ValueMap.to_list
     |> CCList.map (fun (k, v) -> (to_string k) ^ " => " ^ (to_string v))
@@ -60,6 +75,10 @@ module Model = struct
   type entry =
     | Concrete of t_alias
     | Map of FiniteMap.t
+
+  let format_entry f = function
+    | Concrete v -> format_value f v
+    | Map m -> FiniteMap.format f m
 
   let entry_to_string : entry -> string = function
     | Concrete v -> to_string v
@@ -78,6 +97,13 @@ module Model = struct
   let get = NameMap.get
 
   let of_list = NameMap.of_list
+
+  let rec format f = fun m ->
+    CCFormat.fprintf f "@[{@[<hov>%a@]}@;@]"
+      (CCFormat.list ~sep:(CCFormat.return ",@ ") format_entry') 
+      (m |> NameMap.to_list)
+  and format_entry' f = fun (k, v) ->
+    CCFormat.fprintf f "@[%a@ =>@ %a@]@;" Name.format k format_entry v
 
   let to_string : t -> string = fun m -> m
     |> NameMap.to_list

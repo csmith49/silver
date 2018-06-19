@@ -43,6 +43,8 @@ end
 (* for printing nicely *)
 let path_to_string : path -> string = Graph.Path.to_string State.to_string Label.to_string
 
+let format_path = Graph.Path.format State.format Label.format
+
 (* recursively from paths *)
 let rec of_path (env : Types.Environment.t) : path -> t = function
   | [] -> []
@@ -102,6 +104,8 @@ end
 (* here's a big one - we need to convert to a formula capturing the semantics *)
 (* there's a lot of ways to do this, so we have to parameterize by probability axioms and theories *)
 type encoding = Constraint.t list
+
+let format = CCFormat.list ~sep:(CCFormat.return "@ & @ ") Constraint.format
 
 let encoding_to_string : encoding -> string = fun e -> e
   |> CCList.map (fun e -> e.Constraint.expression)
@@ -172,4 +176,9 @@ let rec vars_in_scope : Strategy.t = Strategy.S (
       |> Theory.extract_terms env
       |> Theory.G.get (Theory.symbol_from_type (Types.Base Types.Rational)|> CCOpt.get_exn) in
     (terms, vars_in_scope)
+)
+
+(* more direct strategy *)
+let rec beta_strat : Strategy.t = Strategy.S (
+  fun _ -> ([Parse.parse_expr "beta / n"], beta_strat)
 )

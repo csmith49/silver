@@ -1,5 +1,6 @@
 module S = SMT.Default
 
+open CCFormat
 open AST.Infix
 
 type path = Trace.path
@@ -25,8 +26,6 @@ let post_to_constraint (trace : trace) : AST.annotation -> Constraint.t = fun an
       Constraint.of_expr env (Simplify.simplify expr)
 
 (*  *)
-let vprint verbose s = if verbose then print_endline s else ()
-
 let check
   ?(verbose=false)
   (env : Types.Environment.t)
@@ -44,20 +43,13 @@ let check
       CCList.map (fun enc -> pre :: (enc @ [post])) in
     let i = CCList.length encodings in
     (* printing *)
-    let _ = vprint verbose 
-      ("[CHECKING] " ^ (string_of_int i) ^ " possibilities...") in
+    let _ = if verbose then printf "@[<v>[CHECKING] %d possibilities...@;@]" i else () in
     (* the actual computation *)
     let results = encodings
       |> CCList.mapi (fun i -> fun c ->
-        let _ = vprint verbose 
-          ("[CHECKING / ENCODING " ^ 
-            (string_of_int (i + 1)) ^ "] " ^ 
-            (Trace.encoding_to_string c)) in
+        let _ = if verbose then printf "@[<v>[CHECKING/ENCODING %d]@; @[%a@]@;@]" (i + 1) Trace.format c else () in 
         let answer = (c, Constraint.check_wrt_theory ~verbose:verbose env theory c) in
-        let _ = vprint verbose
-          ("[CHECKING / RESULT " ^ 
-            (string_of_int (i + 1)) ^ "] " ^ 
-            (Constraint.Answer.to_string (snd answer))) in
-        answer) in
+        let _ = if verbose then printf "@[<v>[CHECKING/RESULT %d]@; @[%a@]@;@]" (i + 1) Constraint.Answer.format (snd answer) else () in
+      answer) in
     (* filtering the results *)
     results |> CCList.filter (fun p -> Constraint.Answer.is_unsat (snd p)) |> CCList.head_opt
