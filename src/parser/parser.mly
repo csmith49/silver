@@ -43,7 +43,8 @@
 
 /* version 2.0 */
 program:
-  | pre = annotation; ss = list(statement); post = annotation; EOI { (pre, AST.Block ss, post) }
+  | pre = annotation; ss = list(statement); post = annotation; c = cost; EOI 
+    { (pre, AST.Block ss, post, c) }
 
 just_expression:
   | e = expression; EOI { e }
@@ -133,3 +134,7 @@ quantified_expression:
 %inline quantifier:
   | EXISTS { AST.Exists }
   | FORALL { AST.ForAll }
+
+/* extension 2: syntax for explicit costs */
+cost:
+  | xs = delimited(LEFT_DOUBLE_BRACE, expression, RIGHT_DOUBLE_BRACE) { xs }

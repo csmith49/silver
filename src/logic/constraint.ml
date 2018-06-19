@@ -64,7 +64,7 @@ module Answer = struct
     | _ -> false
 
   let format f : t -> unit = function
-    | Sat m -> CCFormat.fprintf f "@[<v>SAT: @[<hov>%a@]@;@]" Value.Model.format m
+    | Sat m -> CCFormat.fprintf f "SAT:@; %a" Value.Model.format m
     | Unsat -> CCFormat.fprintf f "UNSAT"
     | Unknown -> CCFormat.fprintf f "UNKNOWN"
 end
@@ -114,14 +114,14 @@ let check_wrt_theory ?(verbose=false) (c : Types.Environment.t) : Theory.t -> co
         |> CCList.filter (fun c -> (Cata.evaluate model c) = (Value.of_bool false))
         |> CCList.hd in
       let _ = if verbose then printf
-        "[THEORY/RESULT] Clause %a inconsistent with evaluation. Checking with %d axioms." 
+        "@[<v>[THEORY/RESULT] Clause@ @[%a@]@ inconsistent with evaluation. Checking with %d axioms.@]@;" 
           AST.format failure_clause 
           num_axioms else () in
       let answer = check (cs @ axioms) in
       let _ = if verbose then printf 
-        "[THEORY/RESULT] Result is %a.@;" Answer.format answer else () in
+        "[THEORY/RESULT] Result is %a@;" Answer.format answer else () in
       answer
     | _ as answer ->
       let _ = if verbose then printf
-        "[THEORY] Result is %a.@;" Answer.format answer else () in
+        "[THEORY] Result is %a@;" Answer.format answer else () in
       answer

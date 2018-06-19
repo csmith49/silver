@@ -265,4 +265,5 @@ let find_op (n : Name.t) : t option =
   CCList.find_opt (fun o -> o.name = n) Defaults.defined
 
 (* check if a name corresponds to a quantifier *)
-let is_quantifier : Name.t -> bool = fun n -> CCList.mem (=) n (CCList.map (fun o -> o.name) Defaults.quantifiers)
+let is_quantifier : Name.t -> bool = 
+  fun n -> CCList.mem (=) n (CCList.map (fun o -> o.name) Defaults.quantifiers)

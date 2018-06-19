@@ -12,7 +12,14 @@ module State = struct
   }
 
   (* printing *)
-  let to_string : t -> string = fun s -> Name.to_string s.id
+  let format f : t -> unit = fun s ->
+    let s' = {
+      Program.State.id = s.id;
+      tags = s.tags;
+    } in
+    Program.State.format f s'
+
+  let to_string : t -> string = fun s -> CCFormat.to_string format s
 
   (* comparison just the polymorphic default *)
   let eq = (=)
@@ -71,9 +78,13 @@ module Conjunction = struct
       | None -> None (* this case should never happen *)
 
   (* printing *)
-  let to_string : t -> string =
-    let slist_to_string (ss : State.t list) = CCList.map State.to_string ss |> CCString.concat " | "
-    in Automata.to_string slist_to_string Program.Label.to_string
+  let format f : t -> unit = fun c ->
+    CCFormat.fprintf f "%a"
+      (Automata.format 
+        (CCFormat.list ~sep:(CCFormat.return " | ") State.format) 
+        Label.format)
+      c
+  let to_string : t -> string = CCFormat.to_string format
 end
 
 (* printing just constructs the conjunction and goes from there *)
@@ -119,36 +130,41 @@ type answer =
     (* constructing the eq from primitives *)
     let eq = pair_eq Program.State.eq (lex_eq State.eq)
 
-    let to_string : t -> string = fun (s, ss) ->
-      let s' = Program.State.to_string s in
-      let ss' = CCList.map State.to_string ss in
-        CCString.concat " | " (s' :: ss')
+    (* printing *)
+    let format f : t -> unit = fun (s, ss) ->
+      CCFormat.fprintf f "%a | %a"
+        Program.State.format s
+        (CCFormat.list ~sep:(CCFormat.return " | ") State.format) ss
+    let to_string : t -> string = CCFormat.to_string format
   end
 
   module Label = Program.Label
 
   type t = (State.t, Label.t) Automata.t
 
-  let to_string : t -> string = Automata.to_string State.to_string Label.to_string
+  (* printing *)
+  let format f : t -> unit = fun i ->
+    CCFormat.fprintf f "%a" (Automata.format State.format Label.format) i
+  let to_string : t -> string = CCFormat.to_string format
  end
 
 (* check if the program is covered by the abstraction *)
-let vprint verbose msg = if verbose then print_endline msg else ()
 
 let covers ?(verbose=false) (p : Program.t) (abs : t) : answer =
-  let vp = vprint verbose in
-  let _ = vp "[COVERING] Generating complement..." in
+  let _ = if verbose then CCFormat.printf "[COVERING] Generating complement...@;" else () in
   let comp = complement abs in
-  let _ = vp "[COVERING] Complement automata is: " in
   match comp with
     | Some conjunct ->
-      let _ = vp (Conjunction.to_string conjunct) in
-      let _ = vp "[COVERING] Computing intersection..." in
+      let _ = if verbose then 
+        CCFormat.printf "[COVERING] Complement automata is:@;%a@;" Conjunction.format conjunct 
+        else () in
+      let _ = if verbose then CCFormat.printf "[COVERING] Computing intersection...@;" else () in
       let intersection = Automata.intersect ~l_eq:Automata.Symbol.left_contains p conjunct 
         |> Automata.prune ~s_eq:Intersection.State.eq in
-      let _ = vp "[COVERING] Intersection is: " in
-      let _ = vp (Intersection.to_string intersection) in
-      let _ = vp "[COVERING] Finding path in intersection..." in
+      let _ = if verbose then CCFormat.printf
+        "[COVERING] Intersection is:@;%a"
+        Intersection.format intersection else () in
+      let _ = if verbose then CCFormat.printf "[COVERING] Finding path in intersection...@;" in
       let word = Automata.find ~s_eq:Intersection.State.eq intersection in
       begin match word with
         | Some path -> begin match Automata.concretize_path (Graph.Path.map fst path) with
@@ -158,7 +174,8 @@ let covers ?(verbose=false) (p : Program.t) (abs : t) : answer =
         | None -> Covers
       end
     | None -> 
-      let _ = vp "UNIVERSE\n[COVERING] No abstraction. Finding program path..." in
+      let _ = if verbose then CCFormat.printf
+        "[COVERING] Complement automata is:@;Universe@;[COVERING] No abstraction. Finding program path...@;" else () in
       begin match Automata.find ~s_eq:Program.State.eq p with
         | Some path -> begin match Automata.concretize_path path with
             | Some path -> Counterexample path

@@ -64,4 +64,8 @@ module Defaults = struct
   let log = [
     axiom_of_string "log(rat) > 0";
   ]
+  let abs = [
+    axiom_of_string "abs(rat - rat) == abs(rat - rat)";
+  ]
+  let all = log @ abs
 end

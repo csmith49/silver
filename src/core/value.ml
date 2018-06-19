@@ -53,11 +53,11 @@ module FiniteMap = struct
   let of_list = ValueMap.of_list
 
   let rec format f : t -> unit = fun m ->
-    CCFormat.fprintf f "@[{@[<hov>%a@]@]" 
-      (CCFormat.list ~sep:(CCFormat.return ",@ ") format_entry) 
+    CCFormat.fprintf f "{@[<hv 2>%a@]}" 
+      (CCFormat.list ~sep:(CCFormat.return ",@;") format_entry) 
       (m |> ValueMap.to_list)
   and format_entry f = fun (k, v) ->
-    CCFormat.fprintf f "@[%a@ =>@ %a@]@;" format_value k format_value v
+    CCFormat.fprintf f "@[%a@ =>@ %a@]" format_value k format_value v
 
   let to_string : t -> string = fun m -> m
     |> ValueMap.to_list
@@ -99,11 +99,11 @@ module Model = struct
   let of_list = NameMap.of_list
 
   let rec format f = fun m ->
-    CCFormat.fprintf f "@[{@[<hov>%a@]}@;@]"
+    CCFormat.fprintf f "@[<hv 1>{@;%a@;}@]"
       (CCFormat.list ~sep:(CCFormat.return ",@ ") format_entry') 
       (m |> NameMap.to_list)
   and format_entry' f = fun (k, v) ->
-    CCFormat.fprintf f "@[%a@ =>@ %a@]@;" Name.format k format_entry v
+    CCFormat.fprintf f "@[<hv>@;%a => %a@]" Name.format k format_entry v
 
   let to_string : t -> string = fun m -> m
     |> NameMap.to_list

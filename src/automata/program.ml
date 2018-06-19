@@ -62,7 +62,8 @@ module State = struct
 
   let format f = fun n ->
     let tag_fmt = CCFormat.within "[" "]" (CCFormat.list ~sep:(CCFormat.return " /@ ") Tag.format) in
-    CCFormat.fprintf f "@[%a%a@]" Name.format n.id tag_fmt n.tags
+    if CCList.is_empty n.tags then CCFormat.fprintf f "%a" Name.format n.id else
+      CCFormat.fprintf f "@[%a%a@]" Name.format n.id tag_fmt n.tags
 
   (* we make states unique when we can *)
   let counter = ref 0

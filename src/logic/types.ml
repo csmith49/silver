@@ -31,6 +31,19 @@ and base_to_string : base -> string = function
   | Rational -> "R"
   | Boolean -> "Bool"
 
+let rec format f : t -> unit = function
+  | Base b -> format_base f b
+  | Indexed (d, c) ->
+    CCFormat.fprintf f "@[%a => %a@]" format d format c
+  | Variable v -> Name.format f v
+  | Function (args, c) ->
+    CCFormat.fprintf f "@[%a -> %a@]"
+      (CCFormat.list ~sep:(CCFormat.return "*@ ") format) args
+      format c
+and format_base f : base -> unit = function
+  | Rational -> CCFormat.fprintf f "R"
+  | Boolean -> CCFormat.fprintf f "Bool"
+
 let t_alias_to_string = to_string
 
 module Sub = struct

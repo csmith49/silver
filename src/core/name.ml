@@ -7,17 +7,22 @@ type t = {
 
 (* simple constructors and printers *)
 let of_string (s : string) : t =
-  let rest, hash = match CCString.Split.right ~by:":" s with
-    | Some (rest, hash') -> rest, (int_of_string hash')
-    | None -> s, 0 in
-  let id, counter = match CCString.Split.left ~by:"_" rest with
-    | Some (id, counter') -> id, (int_of_string counter')
-    | None -> rest, 0 in 
-  {
-    id = id;
-    hash = hash;
-    counter = counter;
-  }
+  try
+    let s, ei = match CCString.Split.right ~by:"!" s with
+      | Some (s, ei) -> s, "!" ^ ei
+      | None -> s, "" in
+    let rest, hash = match CCString.Split.right ~by:":" s with
+      | Some (rest, hash') -> rest, (int_of_string hash')
+      | None -> s, 0 in
+    let id, counter = match CCString.Split.left ~by:"_" rest with
+      | Some (id, counter') -> id, (int_of_string counter')
+      | None -> rest, 0 in 
+    {
+      id = id ^ ei;
+      hash = hash;
+      counter = counter;
+    }
+  with _ -> raise (Invalid_argument (CCFormat.sprintf "cannot convert %s to name" s))
 
 (* stringing *)
 let to_string : t -> string = fun n ->

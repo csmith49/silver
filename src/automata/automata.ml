@@ -6,6 +6,13 @@ module Symbol = struct
     | Star
     | Complement of 'a list
   
+  (* for printing *)
+  let format af f : 'a t -> unit = function
+    | Singleton a -> af f a
+    | Star -> CCFormat.fprintf f "*"
+    | Complement xs ->
+      CCFormat.fprintf f "!{@[<hov 2>%a@]}" (CCFormat.list ~sep:(CCFormat.return ",@ ") af) xs
+
   let to_string (p : 'a -> string) : 'a t -> string = function
     | Singleton x -> p x
     | Star -> "*"
@@ -152,6 +159,20 @@ let intersect ?(l_eq = (=)) (a : ('a, 'w) t) (b : ('b, 'w) t) : ('a * 'b, 'w) t 
     final = a.final
       |> CCList.flat_map (fun a -> CCList.map (CCPair.make a) b.final);
   }
+
+(* for printing *)
+let rec format sf lf f : ('s, 'w) t -> unit = fun automata ->
+  CCFormat.fprintf f "@[<v>Start: %a@;Final:@[<v 1>@;%a@]@;Edges:@[<v 1>@;%a@]"
+    sf automata.start
+    (CCFormat.list ~sep:(CCFormat.return "@ ") sf) automata.final
+    (CCFormat.list ~sep:(CCFormat.return "@;") (format_local automata.delta sf lf)) automata.states
+and format_local (g : ('s, 'w Symbol.t) Graph.t) sf lf f : 's -> unit = fun state ->
+  CCFormat.fprintf f "%a @[<hov>@,%a@]"
+    sf state
+    (CCFormat.list 
+      ~sep:(CCFormat.return "@;") 
+      (Graph.Path.format_short_step sf (Symbol.format lf))) 
+    (g state |> CCList.map (fun (lbl, dest) -> (state, lbl, dest)))
 
 (* string conversion - really just used to provide a summary on the terminal *)
 let to_string (sp : 's -> string) (lp : 'w -> string) (automata : ('s, 'w) t) : string =

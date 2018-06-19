@@ -9,13 +9,13 @@ let _ = Global.get_args ();
 
 (* let's do some parsing *)
 let program = Parse.parse !Global.filename in
-let pre, ast, post = program in
+let pre, ast, post, cost = program in
 let env = Static.global_context program |> CCOpt.get_exn in
 let automata = Program.of_ast ast in
 
 (* minor summary info *)
-printf "@[<v>[AUTOMATA SUMMARY]@;%s@;[ENVIRONMENT]@;%s@;@]" 
-  (Program.to_string automata)
+printf "@[<v>[AUTOMATA SUMMARY]@;%a@;[ENVIRONMENT]@;%s@;@]" 
+  (Automata.format Program.State.format Program.Label.format) automata
   (Types.Environment.to_string env);
 
 (* the abstraction we'll be adding proofs to *)
@@ -28,8 +28,14 @@ let d_axioms = Probability.Laplace.all @ Probability.Bernoulli.all in
 let _ = printf "@[<v>[TRACES]@;@]" in
 
 while (not !finished) do
-  let _ = printf "@[<v>[ABSTRACTION] Current abstraction is: @;%s@;@]" 
-    (Abstraction.to_string !abstraction) in
+  let _ = match Abstraction.Conjunction.of_abstraction !abstraction with
+    | Some abs -> 
+        printf "@[<v>[ABSTRACTION] Current abstraction is: @;%a@;@]" 
+          (Automata.format 
+            (CCFormat.list ~sep:(CCFormat.return " | ") Abstraction.State.format) 
+            Abstraction.Label.format)
+          abs
+    | None -> printf "@[<v>[ABSTRACTION] Current abstraction is: @;Empty@;@]" in
   (* STEP 1: Check to see if our abstraction covers the program automata *)
   match Abstraction.covers ~verbose:!Global.verbose automata !abstraction with
     (* CASE 1.1: The automata is covered. The abstraction serves as a proof that p is correct *)
@@ -41,7 +47,7 @@ while (not !finished) do
     | Abstraction.Counterexample path ->
       let _ = CCFormat.printf "@[<v>[TRACE FOUND]@ @[%a@]@;@]" Trace.format_path path in
       (* STEP 2: check if the path satisfies the post-condition *)
-      let answer = Check.check ~verbose:!Global.verbose env strategy d_axioms pre path post in
+      let answer = Check.check ~verbose:!Global.verbose env strategy d_axioms pre path post cost in
       begin match answer with
         (* CASE 2.1: the path cannot be proven to be correct - return as a counterexample *)
         | None -> begin

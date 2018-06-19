@@ -21,7 +21,9 @@ module Defaults = struct
 
   let distribute_not_implication = mk "!(x => y)" "x & !y"
 
-  let inverse_of_inverse = mk "1/(1/x)" "x"
+  let inverse_of_inverse = mk "1/(x/y)" "y/x"
+
+  let drop_existential = mk "exists(x, y)" "y"
 
   (* these are the templates that will be applied *)
   (* we make no guarantee of confluence, termination, etc. *)
@@ -32,7 +34,8 @@ module Defaults = struct
     distribute_not_and;
     distribute_not_or;
     distribute_not_implication;
-    universal_to_existential
+    universal_to_existential;
+    drop_existential
   ]
 end
 

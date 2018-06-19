@@ -11,21 +11,22 @@ let pre_to_constraint (trace : trace) : AST.annotation -> Constraint.t = fun ann
   let expr = annot &. ((var "w") =. (int 0)) &. ((var "h") =. (bool false)) in
     Constraint.of_expr env expr
 
-let post_to_constraint (trace : trace) : AST.annotation -> Constraint.t = fun annot ->
+let post_to_constraint (trace : trace) : AST.annotation -> AST.cost -> Constraint.t = fun annot -> fun c ->
   let i = CCList.length trace in  
   let env = trace 
     |> CCList.last_opt 
     |> CCOpt.get_exn 
     |> fun s -> s.Trace.variables 
     |> Trace.Vars.extend i 
-    |> Types.Environment.update (Name.of_string "beta") (Types.Base Types.Rational) in
+    |> Types.Environment.update (Name.of_string "betainternal") (Types.Base Types.Rational) in
   (* TODO : convert this to the positive form *)
-  let expr = ((var "beta") >= (int 0)) &. 
-    (!. (((var_i ("w", i) <= (var "beta"))) &.
-    ((!. (var_i ("h", i))) =>. annot))) in
+  let c' = Trace.SSA.update_expr c env in
+  let annot' = Trace.SSA.update_expr annot env in
+  let expr = ((var "betainternal") =. c') &. ((var "betainternal") >= (int 0)) &.
+    (!. (((var_i ("w", i) <= (var "betainternal"))) &.
+    ((!. (var_i ("h", i))) =>. annot'))) in
   expr
     |> Simplify.simplify
-    |> fun e -> Trace.SSA.update_expr e env
     |> Constraint.of_expr env
 
 (*  *)
@@ -36,11 +37,12 @@ let check
   (axioms : Probability.axiom list)
   (pre : AST.annotation)
   (path : path) 
-  (post : AST.annotation) : (Trace.encoding * Constraint.Answer.t) option = 
-    let theory = Theory.Defaults.log in
+  (post : AST.annotation) 
+  (cost : AST.cost) : (Trace.encoding * Constraint.Answer.t) option = 
+    let theory = Theory.Defaults.all in
     let trace = Trace.of_path env path in
     let pre = pre_to_constraint trace pre in
-    let post = post_to_constraint trace post in
+    let post = post_to_constraint trace post cost in
     let encodings = 
       Trace.encode env strategy axioms trace |> 
       CCList.map (fun enc -> pre :: (enc @ [post])) in

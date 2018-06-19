@@ -143,12 +143,13 @@ let rec global_constraints : A.t -> C.t = function
       (bt =:= boolean) <&> ec <&> bc
 
 let global_context : A.program -> E.t option = fun prog -> 
-  let pre, ast, post = prog in
+  let pre, ast, post, cost = prog in
   let ast_constraints = global_constraints ast in
   let pre_constraints = snd (type_constraints pre) in
   let post_constraints = snd (type_constraints post) in
-  let vars = (variables ast) @ (vars_in_expr pre) @ (vars_in_expr post) in
-  ast_constraints @ pre_constraints @ post_constraints
+  let cost_constraints = snd (type_constraints cost) in
+  let vars = (variables ast) @ (vars_in_expr pre) @ (vars_in_expr post) @ (vars_in_expr cost) in
+  ast_constraints @ pre_constraints @ post_constraints @ cost_constraints
     |> C.resolve
     >>= (fun sub ->
       CCList.fold_left (fun e -> fun v ->

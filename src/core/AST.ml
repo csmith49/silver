@@ -18,6 +18,9 @@ and lit =
 (* annotations are pre/post conditions *)
 type annotation = expr
 
+(* and cost is the value of beta we care about - possibly symbolic *)
+type cost = expr
+
 (* the structure of a program as a whole - exprs are preserved, this will get converted to an automata *)
 type t =
   | Assign of id * expr
@@ -30,7 +33,7 @@ type quantifier =
   | Exists
   | ForAll
 
-type program = annotation * t * annotation
+type program = annotation * t * annotation * cost
 
 let compare = Pervasives.compare
 let eq = (=)
