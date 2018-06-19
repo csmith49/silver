@@ -1,0 +1,11 @@
+{{ p > 0 }}
+
+x ~ bern(1/2);
+if (x) then {
+    y ~ bern(p);
+} else {
+    y ~ bern(p/2);
+}
+
+{{ !y }}
+{{ (2*p) + 1/2 }}
