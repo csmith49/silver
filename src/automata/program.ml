@@ -53,13 +53,6 @@ module State = struct
   }
     
   (* printing *)
-  let to_string : t -> string = fun n -> 
-    let id = Name.to_string n.id in
-    let tags = n.tags
-      |> CCList.map Tag.to_string
-      |> CCString.concat "/" in
-    if tags = "" then id else id ^ "[" ^ tags ^ "]"
-
   let format f = fun n ->
     let tag_fmt = CCFormat.within "[" "]" (CCFormat.list ~sep:(CCFormat.return " /@ ") Tag.format) in
     if CCList.is_empty n.tags then CCFormat.fprintf f "%a" Name.format n.id else
@@ -100,8 +93,8 @@ end
 
 (* our graph representation - critical for constructing the structure below *)
 type graph = (State.t, Label.t) Graph.t
-type path = (State.t, Label.t) Automata.concrete_path
-type t = (State.t, Label.t) Automata.t
+type path = (State.t, Label.t) DFA.concrete_path
+type t = (State.t, Label.t) DFA.t
 
 (* construction *)
 let rec graph_of_ast (ast : AST.t) (n : State.t) : State.t * graph = match ast with
@@ -150,12 +143,9 @@ let of_ast : AST.t -> t = fun ast ->
   let final = State.of_string "finish" in
   let (start, delta) = graph_of_ast ast final in
   {
-    Automata.states = 
+    DFA.states = 
       CCList.sort_uniq Pervasives.compare (Graph.reachable ~v_eq:State.eq [start] delta);
     start = start;
-    delta = Graph.map_edge Automata.Symbol.lift delta;
+    delta = Graph.map_edge DFA.Alphabet.lift delta;
     final = [final];
   }
-
-(* printing *)
-let to_string : t -> string = Automata.to_string State.to_string Label.to_string

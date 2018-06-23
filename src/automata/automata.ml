@@ -5,6 +5,7 @@ module Symbol = struct
     | Singleton of 'a
     | Star
     | Complement of 'a list
+    | Empty
   
   (* for printing *)
   let format af f : 'a t -> unit = function
@@ -12,13 +13,7 @@ module Symbol = struct
     | Star -> CCFormat.fprintf f "*"
     | Complement xs ->
       CCFormat.fprintf f "!{@[<hov 2>%a@]}" (CCFormat.list ~sep:(CCFormat.return ",@ ") af) xs
-
-  let to_string (p : 'a -> string) : 'a t -> string = function
-    | Singleton x -> p x
-    | Star -> "*"
-    | Complement xs ->
-      let xs' = CCList.map p xs |> CCString.concat ", " in
-      "!{" ^ xs' ^ "}"
+    | Empty -> CCFormat.fprintf f "()"
 
   (* assume left is a singleton - is it in the set described by right? *)
   let left_contains ?(s_eq = (=)) (left : 'a t) (right : 'a t) : bool = match left, right with
@@ -26,6 +21,17 @@ module Symbol = struct
     | Singleton l, Singleton r -> s_eq l r
     | Singleton l, Complement rs -> not (CCList.mem s_eq l rs)
     | _ -> false
+
+  (* meet on the powerset lattice *)
+  let intersect ?(s_eq = (=)) (left : 'a t) (right : 'a t) : 'a t = match left, right with
+    | Empty, _ -> Empty
+    | _, Empty -> Empty
+    | Star, (_ as r) -> r
+    | (_ as l), Star -> l
+    | Singleton l, Singleton r -> if s_eq l r then Singleton l else Empty
+    | Singleton l, Complement rs -> if (CCList.mem s_eq l rs) then Empty else Singleton l
+    | Complement ls, Singleton r -> if (CCList.mem s_eq r ls) then Empty else Singleton r
+    | Complement ls, Complement rs -> Complement (ls @ rs)
 
   (* making our life easier - functional construction mixes better with the rest of the infrastructure *)
   let lift : 'a -> 'a t = fun a -> Singleton a
@@ -47,6 +53,15 @@ module Symbol = struct
   let get_basis : 'a t -> 'a list option = function
     | Complement xs -> Some xs
     | _ -> None
+  
+  let is_empty : 'a t -> bool = function
+    | Empty -> true
+    | _ -> false
+
+  (* for map2 purposes *)
+  let merge ?(s_eq = (=)) : 'a t -> 'a t -> 'a t option = fun l -> fun r ->
+    let answer = intersect ~s_eq:s_eq l r in
+    if is_empty answer then None else Some answer
 end
 
 (* classic automata representation - the transition relation is represented by a graph *)
@@ -79,12 +94,13 @@ let consume_letter ?(l_eq = (=)) (start : 's) (letter : 'w) (automata : ('s, 'w)
     CCList.filter_map f edges_out
 
 (* consume an entire word *)
-let rec consume ?(l_eq = (=)) (start : 's) (word : 'w list) (automata : ('s, 'w) t) : 's list = match word with
-  | [] -> [start]
-  | l :: ls ->
-    let next_states = consume_letter ~l_eq:l_eq l start automata in
-    let step_again = fun state -> consume ~l_eq:l_eq state ls automata in
-      CCList.flat_map step_again next_states
+let rec consume ?(l_eq = (=)) (start : 's) (word : 'w list) (automata : ('s, 'w) t) : 's list =
+  match word with
+    | [] -> [start]
+    | l :: ls ->
+      let next_states = consume_letter ~l_eq:l_eq l start automata in
+      let step_again = fun state -> consume ~l_eq:l_eq state ls automata in
+        CCList.flat_map step_again next_states
 
 (* check to see if a word is accepted *)
 let mem ?(s_eq = (=)) ?(l_eq = (=)) (word : 'w list) (automata : ('s, 'w) t) : bool =
@@ -151,11 +167,12 @@ let find ?(s_eq = (=)) (automata : ('s, 'w) t) : ('s, 'w) path option =
   Graph.bfs ~v_eq:s_eq [automata.start] automata.final automata.delta
 
 (* construct the intersection automata *)
-let intersect ?(l_eq = (=)) (a : ('a, 'w) t) (b : ('b, 'w) t) : ('a * 'b, 'w) t = {
+let intersect ?(l_eq = (=)) (a : ('a, 'w) t) (b : ('b, 'w) t) : ('a * 'b, 'w) t = 
+  {
     states = a.states
       |> CCList.flat_map (fun a -> CCList.map (CCPair.make a) b.states);
     start = (a.start, b.start);
-    delta = Graph.product ~e_eq:l_eq a.delta b.delta;
+    delta = Graph.map2 (Symbol.merge ~s_eq:l_eq) CCPair.make fst snd a.delta b.delta;
     final = a.final
       |> CCList.flat_map (fun a -> CCList.map (CCPair.make a) b.final);
   }
@@ -173,24 +190,6 @@ and format_local (g : ('s, 'w Symbol.t) Graph.t) sf lf f : 's -> unit = fun stat
       ~sep:(CCFormat.return "@;") 
       (Graph.Path.format_short_step sf (Symbol.format lf))) 
     (g state |> CCList.map (fun (lbl, dest) -> (state, lbl, dest)))
-
-(* string conversion - really just used to provide a summary on the terminal *)
-let to_string (sp : 's -> string) (lp : 'w -> string) (automata : ('s, 'w) t) : string =
-  (* the local view just presents a state and all out-edges *)
-  let local_view = fun state ->
-    let state' = sp state in
-    let edges' = CCList.map (fun (lbl, dest) -> " --{" ^ (Symbol.to_string lp lbl) ^ "}-> " ^ (sp dest)) (automata.delta state) in
-      CCString.concat "\n\t" (state' :: edges') in
-  (* so we just show the start state... *)
-  let start' = "Start:\n\t" ^ (sp automata.start) in
-  (* ...the final states... *)
-  let final' = CCString.concat "\n\t" ("Final:" :: (CCList.map sp automata.final)) in
-  (* ...and the edges, using local_view *)
-  let edges' = CCList.map local_view automata.states in
-  (* divider for A E S T H E T I C S *)
-  let div = "+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+" in
-  (* output *)
-    CCString.concat "\n" (start' :: final' :: div :: edges' @ [div])
 
 (* pruning just removes unreachable states *)
 let prune ?(s_eq = (=)) : ('s, 'w) t -> ('s, 'w) t = fun automata -> 

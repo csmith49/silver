@@ -110,18 +110,22 @@ let rec reachable ?(v_eq = (=)) (source : 'v list) (g : ('v, 'e) t) : 'v list =
 let map (f : 'v -> 'w) (f' : 'w -> 'v) (g : ('v, 'e) t) : ('w, 'e) t = fun w -> w
   |> f' |> g |> CCList.map (fun (lbl, dest) -> (lbl, f dest))
 
-(* and map2 needs inverse projections, as well as an edge equality operation *)
-let map2 ?(e_eq = (=)) (f : 'a -> 'b -> 'c) (x : 'c -> 'a) (y : 'c -> 'b) (g : ('a, 'e) t) (h : ('b, 'e) t) : ('c, 'e) t =
-  fun c ->
+(* and map2 needs inverse projections, as well as an edge combining operation *)
+let map2 
+  (e : 'e -> 'e -> 'e option) 
+  (f : 'a -> 'b -> 'c) (x : 'c -> 'a) (y : 'c -> 'b) 
+  (g : ('a, 'e) t) (h : ('b, 'e) t) : ('c, 'e) t = fun c ->
     let a_edges = c |> x |> g in
     let b_edges = c |> y |> h in a_edges
       |> CCList.flat_map (fun  a -> CCList.map (CCPair.make a) b_edges)
-      |> CCList.filter_map (fun ((le, a), (re, b)) ->
-        if e_eq le re then Some (le, f a b) else None)
+      |> CCList.filter_map (fun ((le, a), (re, b)) -> match e le re with
+          | Some edge -> Some (edge, f a b)
+          | None -> None)
 
 (* the simplest instantiation of map2 is the product construction *)
 let product ?(e_eq = (=)) (g : ('v, 'e) t) (h : ('w, 'e) t) : ('v * 'w, 'e) t =
-  map2 ~e_eq:e_eq CCPair.make fst snd g h
+  let e = fun l -> fun r -> if e_eq l r then Some l else None in
+  map2 e CCPair.make fst snd g h
 
 (* minor construction utilities *)
 let of_edge ?(v_eq = (=)) (edge : 'v * 'e * 'v) : ('v, 'e) t =

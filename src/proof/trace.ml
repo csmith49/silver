@@ -41,8 +41,6 @@ module Strategy = struct
 end
 
 (* for printing nicely *)
-let path_to_string : path -> string = Graph.Path.to_string State.to_string Label.to_string
-
 let format_path = Graph.Path.format State.format Label.format
 
 (* recursively from paths *)

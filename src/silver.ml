@@ -14,8 +14,8 @@ let env = Static.global_context program |> CCOpt.get_exn in
 let automata = Program.of_ast ast in
 
 (* minor summary info *)
-printf "@[<v>[AUTOMATA SUMMARY]@;%a@;[ENVIRONMENT]@;%s@;@]" 
-  (Automata.format Program.State.format Program.Label.format) automata
+printf "@[<v>[AUTOMATA SUMMARY]@;%a@;[ENVIRONMENT]@;%s@;" 
+  (DFA.format Program.State.format Program.Label.format) automata
   (Types.Environment.to_string env);
 
 (* the abstraction we'll be adding proofs to *)
@@ -25,17 +25,21 @@ let finished = ref false in
 let strategy = Trace.beta_strat in
 let d_axioms = Probability.Laplace.all @ Probability.Bernoulli.all in
 
-let _ = printf "@[<v>[TRACES]@;@]" in
+let _ = printf "[TRACES]@]@." in
 
 while (not !finished) do
-  let _ = match Abstraction.Conjunction.of_abstraction !abstraction with
-    | Some abs -> 
-        printf "@[<v>[ABSTRACTION] Current abstraction is: @;%a@;@]" 
-          (Automata.format 
-            (CCFormat.list ~sep:(CCFormat.return " | ") Abstraction.State.format) 
-            Abstraction.Label.format)
-          abs
-    | None -> printf "@[<v>[ABSTRACTION] Current abstraction is: @;Empty@;@]" in
+  let _ = printf "@[" in
+  let _ = if !Global.show_auto then begin
+    match Abstraction.Conjunction.of_abstraction !abstraction with
+      | Some abs -> 
+          printf "@[<v>[ABSTRACTION] Current abstraction is: @;%a@;@]" 
+            (DFA.format 
+              (CCFormat.list ~sep:(CCFormat.return " | ") Abstraction.State.format) 
+              Abstraction.Label.format)
+            abs
+      | None -> printf "@[<v>[ABSTRACTION] Current abstraction is: @;Empty@;@]"
+    end
+  else () in
   (* STEP 1: Check to see if our abstraction covers the program automata *)
   match Abstraction.covers ~verbose:!Global.verbose automata !abstraction with
     (* CASE 1.1: The automata is covered. The abstraction serves as a proof that p is correct *)
@@ -64,6 +68,7 @@ while (not !finished) do
             printf "[TRACE ADDED] Iterating...@;";
           end
         end
-    | Abstraction.Unknown -> ()
+    | Abstraction.Unknown -> ();
+  printf "@]@.";
 done;
 CCFormat.print_newline ();

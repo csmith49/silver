@@ -34,7 +34,7 @@ module State = struct
 end
 
 (* a proof is therefore just an automata with states/labels as above *)
-type proof = (State.t, Label.t) Automata.t
+type proof = (State.t, Label.t) DFA.t
 
 (* and an abstraction is a list of proofs *)
 type t = proof list
@@ -42,32 +42,31 @@ type t = proof list
 (* alias for the following module *)
 type abstraction = t
 
+(* negates every automata in the language *)
+let negate : t -> t = fun abs -> CCList.map (fun p -> 
+  p
+  |> DFA.complete ~s_eq:State.eq ~a_eq:Label.eq State.dump
+  |> DFA.negate ~s_eq:State.eq) abs
+
 (* we have an intermediate type - never stored, just constructed, tested against, and discarded *)
 module Conjunction = struct
   (* tuples are not homogeneous, so we use lists instead *)
-  type t = (State.t list, Label.t) Automata.t
+  type t = (State.t list, Label.t) DFA.t
 
   (* lift a proof to a conjunction - corresponds to singleton list construction *)
   let lift (p : proof) : t = 
-    let proof = Automata.complete ~s_eq:State.eq ~l_eq:Label.eq p State.dump in
+    let proof = DFA.complete ~s_eq:State.eq ~a_eq:Label.eq State.dump p in
       {
-        Automata.states = CCList.map CCList.pure proof.Automata.states;
-        start = [proof.Automata.start];
-        delta = Graph.map CCList.pure CCList.hd proof.Automata.delta;
-        final = CCList.map CCList.pure proof.Automata.final;
+        DFA.states = CCList.map CCList.pure proof.DFA.states;
+        start = [proof.DFA.start];
+        delta = Graph.map CCList.pure CCList.hd proof.DFA.delta;
+        final = CCList.map CCList.pure proof.DFA.final;
       }
 
   (* and add a proof to a conjunction - this might be thought of as cons *)
   let conjoin (p : proof) (c : t) : t = 
-    let proof = Automata.complete ~s_eq:State.eq ~l_eq:Label.eq p State.dump in 
-      {
-        Automata.states = proof.Automata.states
-          |> CCList.flat_map (fun a -> CCList.map (CCList.cons a) c.Automata.states);
-        start = proof.Automata.start :: c.Automata.start;
-        delta = Graph.map2 CCList.cons CCList.hd CCList.tl proof.Automata.delta c.Automata.delta;
-        final = proof.Automata.final
-          |> CCList.flat_map (fun a -> CCList.map (CCList.cons a) c.Automata.final);
-      }
+    let proof = DFA.complete ~s_eq:State.eq ~a_eq:Label.eq State.dump p in
+    DFA.intersect ~a_eq:Label.eq CCList.cons CCList.hd CCList.tl proof c
 
   (* construct a conjunction - if possible - from an abstraction *)
   let rec of_abstraction : abstraction -> t option = function
@@ -80,7 +79,7 @@ module Conjunction = struct
   (* printing *)
   let format f : t -> unit = fun c ->
     CCFormat.fprintf f "%a"
-      (Automata.format 
+      (DFA.format 
         (CCFormat.list ~sep:(CCFormat.return " | ") State.format) 
         Label.format)
       c
@@ -100,9 +99,7 @@ let add (a : proof) (abs : t) : t = a :: abs
 
 (* to compute the complement, we convert to a conjunction and negate *)
 let complement (abs : t) : Conjunction.t option =
-  match Conjunction.of_abstraction abs with
-    | Some conjunct -> Some (Automata.negate conjunct)
-    | None -> None
+  abs |> negate |> Conjunction.of_abstraction
 
 (* and, we will need to check that the abstraction covers a program *)
 (* the generation of counter-examples are important - these are paths *)
@@ -140,11 +137,11 @@ type answer =
 
   module Label = Program.Label
 
-  type t = (State.t, Label.t) Automata.t
+  type t = (State.t, Label.t) DFA.t
 
   (* printing *)
   let format f : t -> unit = fun i ->
-    CCFormat.fprintf f "%a" (Automata.format State.format Label.format) i
+    CCFormat.fprintf f "%a" (DFA.format State.format Label.format) i
   let to_string : t -> string = CCFormat.to_string format
  end
 
@@ -159,15 +156,15 @@ let covers ?(verbose=false) (p : Program.t) (abs : t) : answer =
         CCFormat.printf "[COVERING] Complement automata is:@;%a@;" Conjunction.format conjunct 
         else () in
       let _ = if verbose then CCFormat.printf "[COVERING] Computing intersection...@;" else () in
-      let intersection = Automata.intersect ~l_eq:Automata.Symbol.left_contains p conjunct 
-        |> Automata.prune ~s_eq:Intersection.State.eq in
+      let intersection = DFA.intersect ~a_eq:Label.eq CCPair.make fst snd p conjunct 
+        |> DFA.prune ~s_eq:Intersection.State.eq in
       let _ = if verbose then CCFormat.printf
         "[COVERING] Intersection is:@;%a"
         Intersection.format intersection else () in
       let _ = if verbose then CCFormat.printf "[COVERING] Finding path in intersection...@;" in
-      let word = Automata.find ~s_eq:Intersection.State.eq intersection in
+      let word = DFA.find ~s_eq:Intersection.State.eq intersection in
       begin match word with
-        | Some path -> begin match Automata.concretize_path (Graph.Path.map fst path) with
+        | Some path -> begin match DFA.concretize (Graph.Path.map fst path) with
             | Some path -> Counterexample path
             | None -> Unknown
           end
@@ -176,8 +173,8 @@ let covers ?(verbose=false) (p : Program.t) (abs : t) : answer =
     | None -> 
       let _ = if verbose then CCFormat.printf
         "[COVERING] Complement automata is:@;Universe@;[COVERING] No abstraction. Finding program path...@;" else () in
-      begin match Automata.find ~s_eq:Program.State.eq p with
-        | Some path -> begin match Automata.concretize_path path with
+      begin match DFA.find ~s_eq:Program.State.eq p with
+        | Some path -> begin match DFA.concretize path with
             | Some path -> Counterexample path
             | None -> Unknown
           end
@@ -194,8 +191,8 @@ let of_path : Program.path -> proof = fun p ->
     }) p in
   let states = Graph.Path.to_states path in
   {
-    Automata.states = states;
+    DFA.states = states;
     start = CCList.hd states;
-    delta = Graph.map_edge Automata.Symbol.lift (Graph.of_path ~v_eq:State.eq path);
+    delta = Graph.map_edge DFA.Alphabet.lift (Graph.of_path ~v_eq:State.eq path);
     final = [states |> CCList.last_opt |> CCOpt.get_exn];
   }
