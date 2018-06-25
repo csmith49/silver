@@ -24,7 +24,7 @@ module Label = struct
     | Draw (i, e) ->
       CCFormat.fprintf f "@[%a ~ %a@]" AST.format_id i AST.format e
     | Concrete c ->
-      CCFormat.fprintf f "@[Pr_@[{%a ~ %a}@]@[[%a]@]@ <=@ %a"
+      CCFormat.fprintf f "@[Pr_@[{%a ~ %a}@]@[[!%a]@]@ <=@ %a@]"
       AST.format_id c.variable
       AST.format c.expression
       AST.format c.semantics
@@ -33,9 +33,13 @@ module Label = struct
   let to_string : t -> string = CCFormat.to_string format
 
   (* equality check *)
-  let eq (left : t) (right : t) : bool = match left, right with
-    | Draw (i, e), Concrete c -> (c.variable = i) && (c.expression = e)
-    | Concrete c, Draw (i, e) -> (c.variable = i) && (c.expression = e)
+  let rec eq (left : t) (right : t) : bool = match left, right with
+    | Draw _, Concrete c ->
+      let c' = Draw (c.variable, c.expression) in
+      eq left c'
+    | Concrete c, Draw (i, e) ->
+      let c' = Draw (c.variable, c.expression) in
+      eq c' right
     | _ -> left = right
 end
 

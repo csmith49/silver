@@ -52,20 +52,20 @@ while (not !finished) do
     | Abstraction.Counterexample path ->
       let _ = CCFormat.printf "@[<v>[TRACE FOUND]@ @[%a@]@;@]" Trace.format_path path in
       (* STEP 2: check if the path satisfies the post-condition *)
-      let answer = Check.check ~verbose:!Global.verbose env strategy d_axioms pre path post cost in
-      begin match answer with
+      let proofs = Check.check ~verbose:!Global.verbose env strategy d_axioms pre path post cost in
+      begin match proofs with
         (* CASE 2.1: the path cannot be proven to be correct - return as a counterexample *)
-        | None -> begin
+        | [] -> begin
             finished := true;
             printf "@[<v 4>[DONE] Program incorrect. Counter-example found.@;@[<v>%a@]@;@]"
               (CCFormat.list ~sep:(CCFormat.return ";@;") Program.Label.format) 
               (path |> Graph.Path.to_word);
           end
         (* CASE 2.2: the path is correct - we need to convert evidence of such to a proof *)
-        | Some _ -> begin
+        | proof :: _ -> begin
             printf "[TRACE CORRECT] Generating proof.@;";
             (* STEP 3: refine the proof *)
-            abstraction := Abstraction.add (Abstraction.of_path path) !abstraction;
+            abstraction := Abstraction.add proof !abstraction;
             printf "[TRACE ADDED] Iterating...@;";
           end
         end
