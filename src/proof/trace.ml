@@ -43,6 +43,11 @@ module Strategy = struct
   let apply : t -> (step -> (Probability.uif list * t)) = function S s -> s
 end
 
+(* extracts the last environment in the trace *)
+let environment : t -> Types.Environment.t option = fun trace -> trace 
+  |> CCList.last_opt
+  |> CCOpt.map (fun s -> s.variables)
+
 (* for printing nicely *)
 let format_path = Graph.Path.format State.format Label.format
 

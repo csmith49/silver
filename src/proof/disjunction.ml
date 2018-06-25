@@ -5,63 +5,97 @@ module Label = Abstraction.Label
 type path = (State.t, Label.t) Graph.Path.t
 
 (* goal number one is to be able to convert subgraphs into disjunctive encodings *)
-type disjunction = path list
+module Edge = struct
+  type t = {
+    index : int;
+    variables : Types.Environment.t;
+  }
 
-(* we extend bfs from automata/graph.ml to return *all* loop-free paths *)
-let bfs_list (source : 'v list) (dest : 'v list) (g : (State.t, Label.t DFA.Alphabet.t) Graph.t) : (State.t, Label.t DFA.Alphabet.t) Graph.Path.t list =
-  (* aux function that operates over paths *)
-  let rec aux = fun paths ->
-    (* we need to check if paths have reached the destination *)
-    let reaches_dest = fun path -> path
-      |> Graph.Path.to_states |> CCList.last_opt
-      |> CCOpt.exists (fun v -> CCList.mem State.eq v dest) in
-    (* split the paths into those reaching the destination and those that need to be extended *)
-    let finished, ongoing = CCList.partition reaches_dest paths in
-    (* extend ongoing and filter out paths with loops *)
-    let ongoing = ongoing
-      |> CCList.flat_map (fun path -> Graph.extend path g)
-      |> CCList.filter (fun path -> not (Graph.Path.has_loop ~v_eq:State.eq path)) in
-    (* recurse if necessary *)
-    if CCList.is_empty ongoing then finished else finished @ (aux ongoing) in
-  (* generate initial paths out of source *)
-  let init_paths = source |> CCList.flat_map (fun v -> Graph.step v g) |> CCList.map Graph.Path.of_step in
-    aux init_paths
+  (* given a bunch of environemnts, we want to find out how much each variable has changed *)
+  let rec maximal_environment : Types.Environment.t list -> Types.Environment.t = function
+    | [] -> raise (Invalid_argument "Can't compute maximal environment from an empty list")
+    | env :: [] -> env
+    | env :: rest -> Types.Environment.max env (maximal_environment rest)
 
-let of_graph (source : 'v list) (dest : 'v list) 
-  (g : (State.t, Label.t DFA.Alphabet.t) Graph.t) : disjunction option  =
-    let paths = bfs_list source dest g in
-    let concrete_paths = CCList.filter_map DFA.concretize paths in
-    if (CCList.length concrete_paths) = (CCList.length paths) 
-      then Some (concrete_paths |> CCList.sort Pervasives.compare)
-      else None
+  (* disjunction might be ragged - we generate frame formulas to unify the right-hand side *)
+  let frame_formula (edge : t) (current : Types.Environment.t) : Constraint.conjunction = 
+    let maximal = edge.variables |> Trace.Vars.extend edge.index in maximal
+      |> Types.Environment.variables
+      |> CCList.filter_map (fun x ->
+          let mc = Types.Environment.get_counter x maximal in
+          let cc = Types.Environment.get_counter x current in
+          if mc = cc then None else
+            let mx = AST.Identifier (AST.Var (Name.set_counter x mc)) in
+            let cx = AST.Identifier (AST.Var (Name.set_counter x cc)) in
+              Some AST.Infix.(mx =. cx)
+        )
+      |> CCList.map (Constraint.of_expr maximal)
 
-(* individual paths are encoded by conjunctive encodings *)
-type conjunctive_enc = Trace.encoding
+  let of_traces : Trace.t list -> t = fun traces ->
+    let i = traces
+      |> CCList.map CCList.length
+      |> CCList.fold_left max 1 in
+    let env = traces
+      |> CCList.filter_map Trace.environment
+      |> maximal_environment in
+    {
+      index = i;
+      variables = env;
+    }
 
-(* while collections of paths are disjunctive encodings *)
-type disjuntive_enc = conjunctive_enc list
+  let of_environment : Types.Environment.t -> t = fun env -> {
+    variables = env;
+    index = 1;
+  }
+end
 
-(* a disjunctive encoding requires an input index, and picks a set of semantics for every prob assignment *)
-let rec path_to_program_path : path -> Trace.path = function
+type t = {
+  paths : Trace.t list;
+  left : Edge.t;
+  right : Edge.t;
+}
+
+(* to check, we must convert paths to traces - but traces use Program.State! *)
+let rec path_to_program_path : path -> Program.path = function
   | [] -> []
   | (src, lbl, dest) :: rest ->
     let src' = Abstraction.State.to_program_state src in
     let dest' = Abstraction.State.to_program_state dest in
       (src', lbl, dest') :: (path_to_program_path rest)
 
-let path_to_trace (env : Types.Environment.t) : path -> Trace.t = fun p -> p
-  |> path_to_program_path
-  |> Trace.of_path env
+(* construction from automata from state to state *)
+let of_graph (left : Edge.t) 
+  (source : State.t list) (dest : State.t list) 
+  (proof : Abstraction.proof) : t option =
+    let paths = Graph.bfs_list ~v_eq:State.eq source dest proof.DFA.delta in
+    let concrete_paths = CCList.filter_map DFA.concretize paths in
+    (* check if we lost any paths along the way *)
+    if (CCList.length paths) = (CCList.length concrete_paths)
+      then
+        let traces = concrete_paths 
+          |> CCList.sort Pervasives.compare 
+          |> CCList.map path_to_program_path 
+          |> CCList.map (Trace.of_path left.Edge.variables) in
+        let right = Edge.of_traces traces in
+        Some {
+          paths = traces;
+          left = left;
+          right = right;
+        }
+      else None
 
-let to_encoding (index : int) (env : Types.Environment.t)
-  (strat : Trace.Strategy.t) (axioms : Probability.axiom list) : disjunction -> disjuntive_enc list = 
-    fun dis -> dis
-      |> CCList.map (path_to_trace env)
-      |> CCList.map (Trace.encode ~index:index env strat axioms)
-      |> CCList.cartesian_product
-      
-(* constraints are conjunctive, so we have to flatten if we want to actually check a disjunctive encoding *)
-let encoding_to_constraint : disjuntive_enc -> Constraint.t = fun ds -> ds
-  |> CCList.map (fun cj -> CCList.fold_left Constraint.Mk.and_ Constraint.Mk.true_ cj)
-  |> CCList.fold_left Constraint.Mk.or_ Constraint.Mk.false_
-  
+let axiomatize (strategy : Trace.Strategy.t) (axioms : Probability.axiom list) : t -> t list = fun dis ->
+  dis.paths
+    |> CCList.map (Trace.axiomatize strategy axioms)
+    |> CCList.cartesian_product
+    |> CCList.map (fun concrete -> { dis with paths = concrete })
+
+let encode : t -> Constraint.t = fun dis -> 
+  let encodings = dis.paths
+    |> CCList.map (Trace.to_constraint ~index:dis.left.Edge.index) in
+  let frames = dis.paths
+    |> CCList.map (fun t -> Trace.environment t |> CCOpt.get_exn)
+    |> CCList.map (Edge.frame_formula dis.right) in
+  let constraints = CCList.map2 (@) encodings frames 
+    |> CCList.map (fun c -> CCList.fold_left Constraint.Mk.and_ Constraint.Mk.true_ c)
+  in CCList.fold_left Constraint.Mk.or_ Constraint.Mk.false_ constraints

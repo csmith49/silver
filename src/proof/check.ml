@@ -74,33 +74,3 @@ let check
       |> CCList.map fst
       |> CCList.map Trace.to_path
       |> CCList.map Abstraction.of_path
-
-(*  *)
-(* let check
-  ?(verbose=false)
-  (env : Types.Environment.t)
-  (strategy : Trace.Strategy.t)
-  (axioms : Probability.axiom list)
-  (pre : AST.annotation)
-  (path : path) 
-  (post : AST.annotation) 
-  (cost : AST.cost) : (Trace.encoding * Constraint.Answer.t) option = 
-    let theory = Theory.Defaults.all in
-    let trace = Trace.of_path env path in
-    let pre = pre_to_constraint trace pre in
-    let post = post_to_constraint trace post cost in
-    let encodings = 
-      Trace.encode env strategy axioms trace |> 
-      CCList.map (fun enc -> pre :: (enc @ [post])) in
-    let i = CCList.length encodings in
-    (* printing *)
-    let _ = if verbose then printf "@[<v>[CHECKING] %d possibilities...@;@]" i else () in
-    (* the actual computation *)
-    let results = encodings
-      |> CCList.mapi (fun i -> fun c ->
-        let _ = if verbose then printf "@[<v>[CHECKING/ENCODING %d]@; @[%a@]@;@]" (i + 1) Trace.format c else () in 
-        let answer = (c, Constraint.check_wrt_theory ~verbose:verbose env theory c) in
-        let _ = if verbose then printf "@[<v>[CHECKING/RESULT %d]@; @[%a@]@;@]" (i + 1) Constraint.Answer.format (snd answer) else () in
-      answer) in
-    (* filtering the results *)
-    results |> CCList.filter (fun p -> Constraint.Answer.is_unsat (snd p)) |> CCList.head_opt *)

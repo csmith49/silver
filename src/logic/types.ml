@@ -101,6 +101,8 @@ module Environment = struct
 
     let increment: Name.t -> t -> t = fun n -> fun c ->
       let curr = get n c in NameMap.add (Name.reset_counter n) (curr + 1) c
+  
+    let max : t -> t -> t = NameMap.union (fun k -> fun l -> fun r -> Some (max l r))
   end
 
   type t = {
@@ -137,6 +139,11 @@ module Environment = struct
   let increment : Name.t -> t -> t = fun n -> fun env -> 
     {env with counters = Counter.increment n env.counters}
   
+  (* get variables *)
+  let variables : t -> Name.t list = fun env -> env.types
+    |> NameMap.to_list
+    |> CCList.map fst
+
   (* picking out the "live" variables *)
   let live_variables : t -> Name.t list = fun env -> env.types
     |> NameMap.to_list
@@ -155,6 +162,10 @@ module Environment = struct
 
   let update (x : Name.t) (b : t_alias) (env : t) : t = 
     {env with types = NameMap.add x b env.types}
+
+  let max (left : t) (right : t) : t = {
+    left with counters = Counter.max left.counters right.counters;
+  }
 end
 
 let rec unify (l : t) (r : t) : Sub.t option =

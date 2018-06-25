@@ -97,6 +97,26 @@ let bfs ?(v_eq = (=)) (source : 'v list) (dest : 'v list) (g : ('v, 'e) t) : ('v
   let init_paths = source |> CCList.flat_map (fun v -> step v g) |> CCList.map Path.of_step in
     aux init_paths
 
+(* compute all loop-free paths from source to dest *)
+let bfs_list ?(v_eq = (=)) (source : 'v list) (dest : 'v list) (g : ('v, 'e) t) : ('v, 'e) Path.t list =
+  (* aux function that operates over paths *)
+  let rec aux = fun paths ->
+    (* we need to check if paths have reached the destination *)
+    let reaches_dest = fun path -> path
+      |> Path.to_states |> CCList.last_opt
+      |> CCOpt.exists (fun v -> CCList.mem v_eq v dest) in
+    (* split the paths into those reaching the destination and those that need to be extended *)
+    let finished, ongoing = CCList.partition reaches_dest paths in
+    (* extend ongoing and filter out paths with loops *)
+    let ongoing = ongoing
+      |> CCList.flat_map (fun path -> extend path g)
+      |> CCList.filter (fun path -> not (Path.has_loop ~v_eq:v_eq path)) in
+    (* recurse if necessary *)
+    if CCList.is_empty ongoing then finished else finished @ (aux ongoing) in
+  (* generate initial paths out of source *)
+  let init_paths = source |> CCList.flat_map (fun v -> step v g) |> CCList.map Path.of_step in
+    aux init_paths
+
 (* compute the set of states reachable from source *)
 let rec reachable ?(v_eq = (=)) (source : 'v list) (g : ('v, 'e) t) : 'v list =
   let step_reachable = source
