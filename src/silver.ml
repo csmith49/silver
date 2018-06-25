@@ -1,6 +1,7 @@
 (* we'll need this eventually, but this is just to make sure it's included in the build process for now *)
 open Check
 open Interpolant
+(* open Merge *)
 
 open CCFormat
 

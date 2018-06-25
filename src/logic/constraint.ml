@@ -40,6 +40,29 @@ let of_expr (m : Types.Environment.t) : AST.expr -> t = fun e -> {
   encoding = Cata.encode m e;
 }
 
+(* for combining constraints *)
+module Mk = struct
+  let and_ (left : t) (right : t) : t = {
+    expression = AST.Infix.(left.expression &. right.expression);
+    encoding = S.Expr.and_ left.encoding right.encoding;
+  }
+
+  let or_ (left : t) (right : t) : t = {
+    expression = AST.Infix.(left.expression |. right.expression);
+    encoding = S.Expr.or_ left.encoding right.encoding;
+  }
+
+  (* constants *)
+  let true_ : t = {
+    expression = AST.Literal (AST.Boolean true);
+    encoding = S.Expr.bool true;
+  }
+  let false_ : t = {
+    expression = AST.Literal (AST.Boolean false);
+    encoding = S.Expr.bool false;
+  }
+end
+
 type conjunction = t list
 
 let format_conjunction = CCFormat.list ~sep:(CCFormat.return "@ & @ ") format

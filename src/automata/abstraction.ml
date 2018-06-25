@@ -22,7 +22,13 @@ module State = struct
   let to_string : t -> string = fun s -> CCFormat.to_string format s
 
   (* comparison just the polymorphic default *)
-  let eq = (=)
+  let eq (left : t) (right : t) : bool = (left.id, left.tags) = (right.id, right.tags)
+
+  let to_program_state : t -> Program.State.t = fun s ->
+  {
+    Program.State.id = s.id;
+    tags = s.tags;
+  }
 
   (* canonical dump state *)
   let dump : t = {
@@ -182,13 +188,13 @@ let covers ?(verbose=false) (p : Program.t) (abs : t) : answer =
       end
 
 (* given a path we know is correct, we can build a proof *)
-let of_path : Program.path -> proof = fun p ->
+let of_path : Program.path -> proof = fun path ->
   let path = Graph.Path.map (fun n -> {
       State.id = n.Program.State.id;
       tags = n.Program.State.tags;
       annotation = None;
       cost = None;
-    }) p in
+    }) path in
   let states = Graph.Path.to_states path in
   {
     DFA.states = states;

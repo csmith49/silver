@@ -3,10 +3,18 @@ open Name.Infix
 
 (* edges maintain the operation performed while moving from state to state *)
 module Label = struct
+  type concrete = {
+    variable : AST.id;
+    expression : AST.expr;
+    semantics : AST.expr;
+    cost : AST.expr;
+  }
+
   type t =
     | Assume of AST.expr
     | Assign of AST.id * AST.expr
     | Draw of AST.id * AST.expr
+    | Concrete of concrete
 
   (* printing *)
   let format f = function
@@ -15,34 +23,33 @@ module Label = struct
       CCFormat.fprintf f "@[%a = %a@]" AST.format_id i AST.format e
     | Draw (i, e) ->
       CCFormat.fprintf f "@[%a ~ %a@]" AST.format_id i AST.format e
+    | Concrete c ->
+      CCFormat.fprintf f "@[Pr_@[{%a ~ %a}@]@[[%a]@]@ <=@ %a"
+      AST.format_id c.variable
+      AST.format c.expression
+      AST.format c.semantics
+      AST.format c.cost
 
-  let to_string : t -> string = function
-    | Assume e -> AST.expr_to_string e
-    | Assign (i, e) ->
-      let i' = AST.id_to_string i in
-      let e' = AST.expr_to_string e in
-        i' ^ " = " ^ e'
-    | Draw (i, e) ->
-      let i' = AST.id_to_string i in
-      let e' = AST.expr_to_string e in
-        i' ^ " ~ " ^ e'
+  let to_string : t -> string = CCFormat.to_string format
 
   (* equality check *)
-  let eq = (=)
+  let eq (left : t) (right : t) : bool = match left, right with
+    | Draw (i, e), Concrete c -> (c.variable = i) && (c.expression = e)
+    | Concrete c, Draw (i, e) -> (c.variable = i) && (c.expression = e)
+    | _ -> left = right
 end
 
 (* tags are used to indicate where we might consider merging or adding back edges *)
 module Tag = struct
-  type t = Loop | Branch
+  type t = [ `Loop | `Branch ]
 
   (* printing *)
-  let to_string : t -> string = function
-    | Loop -> "LOOP"
-    | Branch -> "BRANCH"
-
   let format f = function
-    | Loop -> CCFormat.fprintf f "LOOP"
-    | Branch -> CCFormat.fprintf f "BRANCH"
+    | `Loop -> CCFormat.fprintf f "LOOP"
+    | `Branch -> CCFormat.fprintf f "BRANCH"
+    | _ -> CCFormat.fprintf f "UNKNOWN"
+
+  let to_string : t -> string = CCFormat.to_string format
 end
 
 (* nodes maintain a unique id - name.t, in this case - and a list of tags representing pertinent info *)
@@ -111,7 +118,7 @@ let rec graph_of_ast (ast : AST.t) (n : State.t) : State.t * graph = match ast w
   | AST.ITE (b, l, r) ->
     let (ln, lg) = graph_of_ast l n in
     let (rn, rg) = graph_of_ast r n in
-    let fresh_n = State.extend n "ite" |> State.set_tag Tag.Branch in
+    let fresh_n = State.extend n "ite" |> State.set_tag `Branch in
     let true_edge = Label.Assume b in
     let false_edge = Label.Assume (AST.FunCall (Name.of_string "not", [b])) in
     let delta = (fun s ->
@@ -119,7 +126,7 @@ let rec graph_of_ast (ast : AST.t) (n : State.t) : State.t * graph = match ast w
       if State.eq s fresh_n then [(true_edge, ln); (false_edge, rn)] @ old_edges else old_edges) in
         (fresh_n, delta)
   | AST.While (b, e) ->
-    let fresh_n = State.extend n "while" |> State.set_tag Tag.Loop in
+    let fresh_n = State.extend n "while" |> State.set_tag `Loop in
     let (en, eg) = graph_of_ast e fresh_n in
     let loop_edge = Label.Assume b in
     let exit_edge = Label.Assume (AST.FunCall (Name.of_string "not", [b])) in

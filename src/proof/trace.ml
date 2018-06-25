@@ -64,7 +64,19 @@ let rec of_path (env : Types.Environment.t) : path -> t = function
         let env = SSA.increment i env in
         let i' = SSA.update_id i env in
         let label = Label.Draw (i', e') in
-          (env, label) in
+          (env, label) 
+      | Label.Concrete c ->
+        let e' = SSA.update_expr c.Label.expression env in
+        let env = SSA.increment c.Label.variable env in
+        let i' = SSA.update_id c.Label.variable env in
+        let s' = SSA.update_expr c.Label.semantics env in
+        let c' = SSA.update_expr c.Label.cost env in
+        let label = Label.Concrete {
+          Label.expression = e';
+          variable = i';
+          semantics = s';
+          cost = c';
+        } in (env, label) in
     let edge = (s, label, d) in
     let step = {
       step = edge;
@@ -151,15 +163,23 @@ let encode_step
         |> CCList.map f 
         |> CCList.map (Constraint.of_expr env) in
       (interps, strat)
+    | Label.Concrete c ->
+      let _, strat = Strategy.apply strat s in
+      let enc = c.Label.semantics &.
+        ((Vars.w i) =. ((Vars.w (i - 1)) +. c.Label.cost)) &.
+        ((Vars.h i) =. (Vars.h (i - 1))) |> Simplify.simplify in
+      let env = Vars.extend i s.variables in
+        ([Constraint.of_expr env enc], strat)
 
 (* and now we can encode the entire thing - note we don't quite need pre and post condition here too *)
-let encode (env : Types.Environment.t) (strat : Strategy.t) (axioms : Probability.axiom list) : t -> encoding list =
-  let rec aux ?(index=1) strat axioms = function
+let encode ?(index=1) 
+  (env : Types.Environment.t) (strat : Strategy.t) (axioms : Probability.axiom list) : t -> encoding list =
+  let rec aux index strat axioms = function
     | [] -> []
     | step :: rest -> let encodings, strat = encode_step strat axioms index step in
-      encodings :: (aux ~index:(index + 1) strat axioms rest)
+      encodings :: (aux (index + 1) strat axioms rest)
   in fun t -> t
-    |> aux strat axioms
+    |> aux index strat axioms
     |> CCList.cartesian_product
 
 (* a default strategy *)
@@ -168,7 +188,8 @@ let rec vars_in_scope : Strategy.t = Strategy.S (
     let expr = match s.step with (src, lbl, dest) -> match lbl with
       | Label.Assign (_, e) -> e
       | Label.Assume b -> b
-      | Label.Draw (_, e) -> e in
+      | Label.Draw (_, e) -> e
+      | Label.Concrete c -> c.Label.semantics in
     let env = s.variables in
     let terms = expr
       |> Theory.extract_terms env
