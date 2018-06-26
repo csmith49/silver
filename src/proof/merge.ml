@@ -18,6 +18,13 @@ type problem = {
   right : Disjunction.t;
 }
 
+(* printing *)
+let format f : problem -> unit = fun prob ->
+  CCFormat.fprintf f "@[<v>Prefix:@;%a@;Left:@;%a@;Right:@;%a@;@]@."
+    Disjunction.format prob.prefix
+    Disjunction.format prob.left
+    Disjunction.format prob.right
+
 (* we convert candidate states into problems *)
 let candidate_to_problem
   (env : Types.Environment.t)
@@ -65,6 +72,9 @@ let can_merge
   (pre : AST.annotation)
   (post : AST.annotation) (cost : AST.cost)
   (prob : problem) : bool =
+    let _ = if verbose then
+      CCFormat.printf "@[[MERGING] Checking problem@;%a@;@]@."
+        format prob in
     (* aliases *)
     let prefix = prob.prefix in
     let left = prob.left in
@@ -84,7 +94,7 @@ let can_merge
     let right_constraint = Constraint.Mk.and_ (Disjunction.encode right) post_right in
     let conjunction =
       pre :: (Disjunction.encode prefix) :: (Constraint.Mk.or_ left_constraint right_constraint) :: [] in
-    match Constraint.check_wrt_theory ~verbose:verbose env theory conjunction with
+    match Constraint.check_wrt_theory env theory conjunction with
       | Constraint.Answer.Unsat -> true
       | _ -> false
 
@@ -116,14 +126,78 @@ let merge
   (left : proof) (right : proof) : proof list =
     (* compute candidates *)
     let candidates = merge_candidates left right in
+    let _ = if verbose then 
+      CCFormat.printf "[MERGING] %d candidate point(s).@." (CCList.length candidates) in
     (* generate base problems *)
     let problems = candidates
       |> CCList.filter_map (fun c -> candidate_to_problem env c left right) in
     (* axiomatize problems *)
     let problems = problems
       |> CCList.flat_map (axiomatize_problem strategy axioms) in
+    let _ = if verbose then
+      CCFormat.printf "[MERGING] %d axiomatizations at candidate point.@." (CCList.length problems) in
     (* filter problems to maintain only solutions *)
     let solutions = problems
       |> CCList.filter (can_merge ~verbose:verbose ~theory:theory env pre post cost) in
+    let _ = if verbose then
+      CCFormat.printf "[MERGING] %d resulting solution(s).@." (CCList.length solutions) in
     (* convert solutions back to proofs *)
     solutions |> CCList.map (problem_to_proof left right)
+
+let rec merge_abstraction
+  ?(verbose=false)
+  ?(theory=Theory.Defaults.all)
+  (env : Types.Environment.t)
+  (pre : AST.annotation)
+  (post : AST.annotation) (cost : AST.cost)
+  (abs : Abstraction.t) : Abstraction.t =
+    let _ = if verbose then CCFormat.printf "[MERGE] Initating greedy merging...@." in
+    let strategy = Trace.beta_strat in
+    let axioms = Probability.Laplace.all @ Probability.Bernoulli.all in
+    if (CCList.length abs) >= 2 then
+      (* index the proofs *)
+      let indexed = CCList.mapi (fun i -> fun p -> (i, p)) abs in
+      (* construct pairs of all distinct proofs *)
+      let indices = CCList.map fst indexed in
+      let pairs = [indices ; indices]
+        |> CCList.cartesian_product
+        |> CCList.filter_map (fun xs -> match xs with
+            | [x ; y] -> Some (x, y)
+            | _ -> None)
+        |> CCList.filter (fun (x, y) -> x < y) in
+      let merges = pairs
+        |> CCList.filter_map (fun (l, r) ->
+            let left = CCList.assoc ~eq:(=) l indexed in
+            let right = CCList.assoc ~eq:(=) r indexed in
+            let merges = merge
+              ~verbose:verbose
+              ~theory:theory
+              strategy axioms
+              env
+              pre post cost
+              left right in
+            if CCList.is_empty merges then None
+            else Some (l, r, merges))
+        |> CCList.head_opt in
+      match merges with
+        | Some (l, r, ms) ->
+          let merge = ms |> CCList.hd in
+          let old_proofs = indexed
+            |> CCList.remove_assoc ~eq:(=) l
+            |> CCList.remove_assoc ~eq:(=) r
+            |> CCList.map snd in
+          let answer = merge_abstraction
+            ~verbose:verbose
+            ~theory:theory
+            env
+            pre post cost
+            (merge :: old_proofs) in
+          let _ = if verbose then
+            CCFormat.printf "[MERGE RESULT] Merge successful on proof %d and %d.@." l r in
+          answer
+        | None -> 
+          let _ = if verbose then CCFormat.printf "[MERGE RESULT] No merge candidates.@." in
+          abs
+    else 
+      let _ = if verbose then CCFormat.printf "[MERGE RESULT] Abstraction too small.@." in  
+      abs

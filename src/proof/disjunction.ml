@@ -103,8 +103,14 @@ let encode : t -> Constraint.t = fun dis ->
     |> CCList.map (fun c -> CCList.fold_left Constraint.Mk.and_ Constraint.Mk.true_ c)
   in CCList.fold_left Constraint.Mk.or_ Constraint.Mk.false_ constraints
 
+(* this might not be right *)
 let to_graph : t -> (Abstraction.State.t, Abstraction.Label.t DFA.Alphabet.t) Graph.t = fun dis ->
   let paths = dis.paths |> CCList.map Trace.to_path in
   let graphs = paths 
     |> CCList.map (fun path -> Abstraction.of_path path |> fun abs -> abs.DFA.delta) in
   CCList.fold_left Graph.merge (fun _ -> []) graphs
+
+(* printing and whatnot *)
+let format f : t -> unit = fun dis ->
+  CCFormat.fprintf f "@[<v>%a@;@]@."
+    (CCFormat.list ~sep:(CCFormat.return "@;") Trace.format) dis.paths

@@ -204,3 +204,10 @@ let of_path : Program.path -> proof = fun path ->
     delta = Graph.map_edge DFA.Alphabet.lift (Graph.of_path ~v_eq:State.eq path);
     final = [states |> CCList.last_opt |> CCOpt.get_exn];
   }
+
+(* printing - we just go proof by proof *)
+let format f : t -> unit = function
+  | [] -> CCFormat.fprintf f "EMPTY"
+  | abs ->
+    CCFormat.fprintf f "@[<v>%a@;@]"
+      (CCFormat.list ~sep:(CCFormat.return "@;----@;") (DFA.format State.format Label.format)) abs
