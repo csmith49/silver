@@ -159,8 +159,12 @@ let intersect
 let prune ?(s_eq = (=)) (dfa : ('s, 'a) t) : ('s, 'a) t = 
   let reachable = Graph.reachable ~v_eq:s_eq [dfa.start] dfa.delta in
   { dfa with
-    states = dfa.states |> CCList.filter (fun s -> CCList.mem s_eq s reachable);
-    final = dfa.final |> CCList.filter (fun s -> CCList.mem s_eq s reachable);
+    states = dfa.states 
+      |> CCList.filter (fun s -> CCList.mem s_eq s reachable)
+      |> CCList.uniq ~eq:s_eq;
+    final = dfa.final 
+      |> CCList.filter (fun s -> CCList.mem s_eq s reachable)
+      |> CCList.uniq ~eq:s_eq;
   }
 
 (* printing *)

@@ -82,6 +82,8 @@ module Conjunction = struct
       | Some conjunct -> Some (conjoin proof conjunct)
       | None -> None (* this case should never happen *)
 
+  let eq = CCList.equal State.eq
+
   (* printing *)
   let format f : t -> unit = fun c ->
     CCFormat.fprintf f "%a"
@@ -154,20 +156,20 @@ type answer =
 (* check if the program is covered by the abstraction *)
 
 let covers ?(verbose=false) (p : Program.t) (abs : t) : answer =
-  let _ = if verbose then CCFormat.printf "[COVERING] Generating complement...@;" else () in
-  let comp = complement abs in
+  let _ = if verbose then CCFormat.printf "@[[COVERING] Generating complement...@]@;" else () in
+  let comp = complement abs |> CCOpt.map (DFA.prune ~s_eq:Conjunction.eq) in
   match comp with
     | Some conjunct ->
       let _ = if verbose then 
-        CCFormat.printf "[COVERING] Complement automata is:@;%a@;" Conjunction.format conjunct 
+        CCFormat.printf "@[[COVERING] Complement automata is:@;%a@]@;" Conjunction.format conjunct 
         else () in
-      let _ = if verbose then CCFormat.printf "[COVERING] Computing intersection...@;" else () in
+      let _ = if verbose then CCFormat.printf "@[[COVERING] Computing intersection...@]@;" else () in
       let intersection = DFA.intersect ~a_eq:Label.eq CCPair.make fst snd p conjunct 
         |> DFA.prune ~s_eq:Intersection.State.eq in
       let _ = if verbose then CCFormat.printf
-        "[COVERING] Intersection is:@;%a"
+        "@[[COVERING] Intersection is:@;%a@]@;"
         Intersection.format intersection else () in
-      let _ = if verbose then CCFormat.printf "[COVERING] Finding path in intersection...@;" in
+      let _ = if verbose then CCFormat.printf "@[[COVERING] Finding path in intersection...@]@;" in
       let word = DFA.find ~s_eq:Intersection.State.eq intersection in
       begin match word with
         | Some path -> begin match DFA.concretize (Graph.Path.map fst path) with
@@ -178,7 +180,7 @@ let covers ?(verbose=false) (p : Program.t) (abs : t) : answer =
       end
     | None -> 
       let _ = if verbose then CCFormat.printf
-        "[COVERING] Complement automata is:@;Universe@;[COVERING] No abstraction. Finding program path...@;" else () in
+        "@[[COVERING] Complement automata is:@;Universe@;[COVERING] No abstraction. Finding program path..@].@;" else () in
       begin match DFA.find ~s_eq:Program.State.eq p with
         | Some path -> begin match DFA.concretize path with
             | Some path -> Counterexample path

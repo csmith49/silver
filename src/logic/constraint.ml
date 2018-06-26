@@ -120,10 +120,13 @@ let check_wrt_theory ?(verbose=false) (c : Types.Environment.t) : Theory.t -> co
       (* if the model is consistent with an actual evaluation, it's really a model *)
       let _ = if verbose then printf 
         "@[<v>[THEORY/RESULT] Sat with model@; @[%a@]@;@]" Value.Model.format model else () in 
-      let values = cs
-        |> CCList.map (fun c -> c.expression)
-        |> CCList.map (Cata.evaluate model) in
-      if CCList.for_all (fun v -> v = (Value.of_bool true)) values then
+      let consistent = try
+        let values = cs
+          |> CCList.map (fun c -> c.expression)
+          |> CCList.map (Cata.evaluate model) in
+        CCList.for_all (fun v -> v = (Value.of_bool true)) values
+        with _ -> false in
+      if consistent then
         let _ = if verbose then printf "[THEORY] Model consistent with evaluation.@;" else () in
         Answer.Sat model
       (* if not, we need to add some more info about the functions in the theory *)
@@ -132,10 +135,12 @@ let check_wrt_theory ?(verbose=false) (c : Types.Environment.t) : Theory.t -> co
         |> CCList.flat_map (Theory.concretize c theory)
         |> CCList.map (of_expr c) in
       let num_axioms = CCList.length axioms in
-      let failure_clause = cs
-        |> CCList.map (fun c -> c.expression)
-        |> CCList.filter (fun c -> (Cata.evaluate model c) = (Value.of_bool false))
-        |> CCList.hd in
+      let failure_clause = try
+        cs
+          |> CCList.map (fun c -> c.expression)
+          |> CCList.filter (fun c -> (Cata.evaluate model c) = (Value.of_bool false))
+          |> CCList.hd 
+        with _ -> AST.Literal (AST.Boolean false) in
       let _ = if verbose then printf
         "@[<v>[THEORY/RESULT] Clause@ @[%a@]@ inconsistent with evaluation. Checking with %d axioms.@]@;" 
           AST.format failure_clause 
