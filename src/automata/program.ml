@@ -54,6 +54,10 @@ module Tag = struct
     | _ -> CCFormat.fprintf f "UNKNOWN"
 
   let to_string : t -> string = CCFormat.to_string format
+
+  let is_branch : t -> bool = function
+    | `Branch -> true
+    | _ -> false
 end
 
 (* nodes maintain a unique id - name.t, in this case - and a list of tags representing pertinent info *)

@@ -55,6 +55,9 @@ type t = {
   right : Edge.t;
 }
 
+let eq : t -> t -> bool = fun l -> fun r ->
+  (CCList.sort Pervasives.compare l.paths) = (CCList.sort Pervasives.compare r.paths)
+
 (* to check, we must convert paths to traces - but traces use Program.State! *)
 let rec path_to_program_path : path -> Program.path = function
   | [] -> []
@@ -99,3 +102,9 @@ let encode : t -> Constraint.t = fun dis ->
   let constraints = CCList.map2 (@) encodings frames 
     |> CCList.map (fun c -> CCList.fold_left Constraint.Mk.and_ Constraint.Mk.true_ c)
   in CCList.fold_left Constraint.Mk.or_ Constraint.Mk.false_ constraints
+
+let to_graph : t -> (Abstraction.State.t, Abstraction.Label.t DFA.Alphabet.t) Graph.t = fun dis ->
+  let paths = dis.paths |> CCList.map Trace.to_path in
+  let graphs = paths 
+    |> CCList.map (fun path -> Abstraction.of_path path |> fun abs -> abs.DFA.delta) in
+  CCList.fold_left Graph.merge (fun _ -> []) graphs

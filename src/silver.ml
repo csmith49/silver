@@ -29,6 +29,8 @@ let d_axioms = Probability.Laplace.all @ Probability.Bernoulli.all in
 let _ = printf "[TRACES]@]@." in
 
 while (not !finished) do
+  let _ = CCFormat.print_newline () in
+  let _ = read_line () in
   let _ = printf "@[" in
   let _ = if !Global.show_auto then begin
     match Abstraction.Conjunction.of_abstraction !abstraction with
@@ -71,5 +73,6 @@ while (not !finished) do
         end
     | Abstraction.Unknown -> ();
   printf "@]@.";
+  let _ = read_line () in ();
 done;
 CCFormat.print_newline ();

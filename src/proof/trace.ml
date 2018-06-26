@@ -29,11 +29,13 @@ type step = {
   variables : Types.Environment.t;
 }
 
-let format_step f = CCFormat.fprintf f "%a" (Graph.Path.format_step State.format Label.format)
+let format_step f s = CCFormat.fprintf f "%a" (Graph.Path.format_step State.format Label.format) s.step
 let format_short_step f = CCFormat.fprintf f "%a" (Graph.Path.format_short_step State.format Label.format)
 
 (* traces are thus effectively annotated paths *)
 type t = step list
+
+let format = CCFormat.list ~sep:(CCFormat.return "@;") format_step
 
 (* this might look weird, but we have to parameterize our search by a strat and it needs state *)
 (* so instead it gives an answer and a new strategy to use *)
@@ -156,14 +158,17 @@ let axiomatize_step
         (* we return a non-concretized version of s in addition *)
         (s :: concretized, strategy)
       | _ -> let _, strategy = Strategy.apply strategy s in
-        ([s], strategy) 
+        ([s], strategy)
   
 (* now we can axiomatize an entire path by chaining the strategy along *)
-let rec axiomatize (strategy : Strategy.t) (axioms : Probability.axiom list) : t -> t list = function
+let axiomatize (strategy : Strategy.t) (axioms : Probability.axiom list) : t -> t list = function
   | [] -> []
-  | step :: rest ->
-    let concretized, strategy = axiomatize_step strategy axioms step in
-    CCList.cartesian_product (concretized :: (axiomatize strategy axioms rest))
+  | trace ->
+    let concretized, _ =
+      CCList.fold_left (fun (axiomatized, strat) -> fun s -> 
+        let sl, strategy = axiomatize_step strategy axioms s in
+        axiomatized @ [sl], strategy) ([], strategy) trace in
+    concretized |> CCList.cartesian_product
 
 (* converting a step to a constraint is straightforward - enc_i *)
 let step_to_constraint (i : int) : step -> Constraint.t = fun s -> 

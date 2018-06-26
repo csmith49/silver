@@ -153,6 +153,13 @@ let of_edge ?(v_eq = (=)) (edge : 'v * 'e * 'v) : ('v, 'e) t =
 
 let merge (g : ('v, 'e) t) (h : ('v, 'e) t) : ('v, 'e) t = fun v -> (g v) @ (h v)
 
+(* place a graph over another (h ontop of g, obscuring edges equivalent via e_eq) *)
+let overlay ?(v_eq = (=)) ?(e_eq = (=)) (g : ('v, 'e) t) (h : ('v, 'e) t) : ('v, 'e) t = fun v ->
+  let eq (el, nl) (er, nr) = (v_eq nl nr) = (e_eq el er) in
+  let h_edges = v |> h in
+  let g_edges = v |> g |> CCList.filter (fun e -> not (CCList.mem eq e h_edges)) in
+    h_edges @ g_edges
+
 (* mapping edges is sooooo much easier than states - no inverse needed *)
 let map_edge (f : 'e -> 'f) (g : ('v, 'e) t) : ('v, 'f) t = fun n -> n
   |> g

@@ -54,7 +54,6 @@ end
 module Bernoulli = struct
   let var_1 = mk "bern(p)" "x == true" "p"
   let var_2 = mk "bern(p)" "x == false" "1 - p"
-  let var_3 = mk "bern(p)" "true" "0"
 
-  let all = [var_1; var_2; var_3]
+  let all = [var_1; var_2]
 end
