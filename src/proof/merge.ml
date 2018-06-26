@@ -144,60 +144,38 @@ let merge
     (* convert solutions back to proofs *)
     solutions |> CCList.map (problem_to_proof left right)
 
-let rec merge_abstraction
+let merge_abstraction
   ?(verbose=false)
   ?(theory=Theory.Defaults.all)
   (env : Types.Environment.t)
-  (pre : AST.annotation)
-  (post : AST.annotation) (cost : AST.cost)
-  (abs : Abstraction.t) : Abstraction.t =
-    let _ = if verbose then CCFormat.printf "[MERGE] Initating greedy merging...@." in
+  (pre : AST.annotation) (post : AST.annotation) (cost : AST.cost)
+  (abs : Abstraction.t) : (int * int * proof) list =
+    let _ = if verbose then
+      CCFormat.printf "[MERGE] Initiating merging...@." in
+    (* we pick some defaults - these could be propagated using optional params *)
     let strategy = Trace.beta_strat in
     let axioms = Probability.Laplace.all @ Probability.Bernoulli.all in
-    if (CCList.length abs) >= 2 then
-      (* index the proofs *)
-      let indexed = CCList.mapi (fun i -> fun p -> (i, p)) abs in
-      (* construct pairs of all distinct proofs *)
-      let indices = CCList.map fst indexed in
-      let pairs = [indices ; indices]
-        |> CCList.cartesian_product
-        |> CCList.filter_map (fun xs -> match xs with
-            | [x ; y] -> Some (x, y)
-            | _ -> None)
-        |> CCList.filter (fun (x, y) -> x < y) in
-      let merges = pairs
-        |> CCList.filter_map (fun (l, r) ->
-            let left = CCList.assoc ~eq:(=) l indexed in
-            let right = CCList.assoc ~eq:(=) r indexed in
-            let merges = merge
-              ~verbose:verbose
-              ~theory:theory
-              strategy axioms
-              env
-              pre post cost
-              left right in
-            if CCList.is_empty merges then None
-            else Some (l, r, merges))
-        |> CCList.head_opt in
-      match merges with
-        | Some (l, r, ms) ->
-          let merge = ms |> CCList.hd in
-          let old_proofs = indexed
-            |> CCList.remove_assoc ~eq:(=) l
-            |> CCList.remove_assoc ~eq:(=) r
-            |> CCList.map snd in
-          let answer = merge_abstraction
-            ~verbose:verbose
-            ~theory:theory
-            env
+    (* if there aren't enough things to merge, don't bother *)
+    if (CCList.length abs) < 2 then 
+      let _ = if verbose then CCFormat.printf "[MERGE] Abstraction too small.@." in [] else
+    (* index the proofs and construct all pairs to be checked *)
+    let indexed = CCList.mapi CCPair.make abs in
+    let indices = indexed |> CCList.map fst in
+    let pairs = [indices ; indices]
+      |> CCList.cartesian_product
+      |> CCList.filter_map (fun xs -> match xs with
+          | [x ; y] -> Some (x, y)
+          | _ -> None)
+      |> CCList.filter (fun (x, y) -> x < y) in
+    let merges = pairs
+      |> CCList.flat_map (fun (l, r) ->
+          let left = CCList.assoc ~eq:(=) l indexed in
+          let right = CCList.assoc ~eq:(=) r indexed in
+          let merges = merge ~verbose:verbose ~theory:theory
+            strategy axioms env
             pre post cost
-            (merge :: old_proofs) in
-          let _ = if verbose then
-            CCFormat.printf "[MERGE RESULT] Merge successful on proof %d and %d.@." l r in
-          answer
-        | None -> 
-          let _ = if verbose then CCFormat.printf "[MERGE RESULT] No merge candidates.@." in
-          abs
-    else 
-      let _ = if verbose then CCFormat.printf "[MERGE RESULT] Abstraction too small.@." in  
-      abs
+            left right in
+          merges |> CCList.map (fun p -> (l, r, p))) in
+    let _ = if verbose then
+      CCFormat.printf "[MERGE] Found %d merges.@." (CCList.length merges) in
+    merges
