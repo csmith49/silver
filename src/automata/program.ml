@@ -58,6 +58,10 @@ module Tag = struct
   let is_branch : t -> bool = function
     | `Branch -> true
     | _ -> false
+  
+  let is_loop : t -> bool = function
+    | `Loop -> true
+    | _ -> false
 end
 
 (* nodes maintain a unique id - name.t, in this case - and a list of tags representing pertinent info *)

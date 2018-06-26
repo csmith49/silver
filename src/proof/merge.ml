@@ -1,5 +1,3 @@
-open Disjunction
-
 module State = Abstraction.State
 type proof = Abstraction.proof
 
@@ -100,9 +98,9 @@ let can_merge
 
 (* can we convert a problem back to a proof *)
 let problem_to_proof (left : proof) (right : proof) : problem -> proof = fun prob -> {
-  DFA.states = CCList.sort_uniq Pervasives.compare (left.DFA.states @ right.DFA.states);
+  DFA.states = CCList.uniq State.eq (left.DFA.states @ right.DFA.states);
   start = left.DFA.start;
-  final = CCList.sort_uniq Pervasives.compare (left.DFA.states @ right.DFA.states);
+  final = CCList.uniq State.eq (left.DFA.states @ right.DFA.states);
   delta = Graph.overlay 
     left.DFA.delta 
     (Graph.overlay 

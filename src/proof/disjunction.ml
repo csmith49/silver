@@ -55,6 +55,12 @@ type t = {
   right : Edge.t;
 }
 
+(* pull the states from every trace in the disjunction *)
+let states : t -> State.t list = fun dis -> dis.paths
+  |> CCList.map Trace.to_path
+  |> CCList.flat_map Graph.Path.to_states
+  |> CCList.map Abstraction.State.of_program_state
+
 let eq : t -> t -> bool = fun l -> fun r ->
   (CCList.sort Pervasives.compare l.paths) = (CCList.sort Pervasives.compare r.paths)
 

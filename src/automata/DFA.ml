@@ -167,6 +167,9 @@ let prune ?(s_eq = (=)) (dfa : ('s, 'a) t) : ('s, 'a) t =
       |> CCList.uniq ~eq:s_eq;
   }
 
+let loop_free ?(s_eq = (=)) (dfa : ('s, 'a) t) : bool =
+  Graph.loop_free ~v_eq:s_eq [dfa.start] dfa.final dfa.delta
+
 (* printing *)
 let rec format sf lf f : ('s, 'w) t -> unit = fun automata ->
   CCFormat.fprintf f "@[<v>Start: %a@;Final:@[<v 1>@;%a@]@;Edges:@[<v 1>@;%a@]"

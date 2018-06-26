@@ -29,6 +29,12 @@ module State = struct
     Program.State.id = s.id;
     tags = s.tags;
   }
+  let of_program_state : Program.State.t -> t = fun s -> {
+    id = s.Program.State.id;
+    tags = s.Program.State.tags;
+    annotation = None;
+    cost = None;
+  }
 
   (* canonical dump state *)
   let dump : t = {

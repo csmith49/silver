@@ -164,3 +164,22 @@ let overlay ?(v_eq = (=)) ?(e_eq = (=)) (g : ('v, 'e) t) (h : ('v, 'e) t) : ('v,
 let map_edge (f : 'e -> 'f) (g : ('v, 'e) t) : ('v, 'f) t = fun n -> n
   |> g
   |> CCList.map (CCPair.map1 f)
+
+(* we should be able to tell when a loop exists between two sets of states *)
+let loop_free ?(v_eq = (=)) (source : 'v list) (dest : 'v list) : ('v, 'e) t -> bool = fun g ->
+  (* aux function iterates over paths *)
+  let rec aux = fun paths ->
+    (* check for loops *)
+    if CCList.exists (Path.has_loop ~v_eq:v_eq) paths then false else
+    (* see what we can drop *)
+    let reaches_dest = fun path -> path
+      |> Path.to_states |> CCList.last_opt
+      |> CCOpt.exists (fun v -> CCList.mem v_eq v dest) in
+    (* filter out paths reaching the state and extend *)
+    let ongoing = paths
+      |> CCList.filter reaches_dest
+      |> CCList.flat_map (fun path -> extend path g) in
+    aux ongoing
+  in let init_paths = source |> CCList.flat_map (fun v -> step v g) |> CCList.map Path.of_step in
+    aux init_paths
+    
