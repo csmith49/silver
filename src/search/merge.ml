@@ -185,8 +185,6 @@ let merge
     let _ = if verbose then
       CCFormat.printf "[MERGING] %d resulting solution(s).@." (CCList.length solutions) in
     (* convert solutions back to proofs *)
-    let start = left.Abstraction.automata.DFA.start in
-    let final = left.Abstraction.automata.DFA.final in
     let left_cost = left.Abstraction.cost in
     let right_cost = right.Abstraction.cost in
     solutions |> CCList.map (to_proof start final left_cost right_cost)

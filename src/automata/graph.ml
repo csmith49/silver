@@ -153,6 +153,10 @@ let of_edge ?(v_eq = (=)) (edge : 'v * 'e * 'v) : ('v, 'e) t =
 
 let merge (g : ('v, 'e) t) (h : ('v, 'e) t) : ('v, 'e) t = fun v -> (g v) @ (h v)
 
+(* merging staes makes two states be considered equivalent for purposes of out edges *)
+let merge_states ?(v_eq = (=)) (left : 'v) (right : 'v) (g : ('v, 'e) t) : ('v, 'e) t = fun n ->
+  if v_eq n right then g left else g n
+
 (* place a graph over another (h ontop of g, obscuring edges equivalent via e_eq) *)
 let overlay ?(v_eq = (=)) ?(e_eq = (=)) (g : ('v, 'e) t) (h : ('v, 'e) t) : ('v, 'e) t = fun v ->
   let eq (el, nl) (er, nr) = (v_eq nl nr) = (e_eq el er) in

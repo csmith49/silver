@@ -233,6 +233,8 @@ let reset_step = fun s -> match s with (src, lbl, dest) ->
 
 let to_path : t -> path = fun tr -> tr |> CCList.map (fun s -> s.step |> reset_step)
 
+let to_word : t -> Label.t list = fun tr -> tr |> to_path |> Graph.Path.to_word
+
 let format f t = CCFormat.fprintf f "%a" (Graph.Path.format State.format Label.format) (to_path t)
 
 (* a default strategy *)

@@ -47,6 +47,9 @@ module Edge = struct
     variables = env;
     index = 1;
   }
+
+  let update_expr : AST.expr -> t -> AST.expr = fun e -> fun edge ->
+    Trace.SSA.update_expr e edge.variables
 end
 
 type t = {
@@ -123,3 +126,8 @@ let to_graph : t -> (Abstraction.State.t, Abstraction.Label.t DFA.Alphabet.t) Gr
 let format f : t -> unit = fun dis ->
   CCFormat.fprintf f "@[<v>%a@;@]@."
     (CCFormat.list ~sep:(CCFormat.return "@;") Trace.format) dis.paths
+
+(* get the free variables in the union of all traces *)
+let free_variables : t -> Interpolant.Variable.t list = fun dis -> dis.paths
+  |> CCList.flat_map Trace.to_word
+  |> CCList.flat_map Interpolant.Variable.variables_in_label
