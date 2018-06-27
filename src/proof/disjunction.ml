@@ -76,7 +76,8 @@ let rec path_to_program_path : path -> Program.path = function
 let of_graph (left : Edge.t) 
   (source : State.t list) (dest : State.t list) 
   (proof : Abstraction.proof) : t option =
-    let paths = Graph.bfs_list ~v_eq:State.eq source dest proof.DFA.delta in
+    let paths = Graph.bfs_list ~v_eq:State.eq 
+      source dest proof.Abstraction.automata.DFA.delta in
     let concrete_paths = CCList.filter_map DFA.concretize paths in
     (* check if we lost any paths along the way *)
     if (CCList.length paths) = (CCList.length concrete_paths)
@@ -113,7 +114,8 @@ let encode : t -> Constraint.t = fun dis ->
 let to_graph : t -> (Abstraction.State.t, Abstraction.Label.t DFA.Alphabet.t) Graph.t = fun dis ->
   let paths = dis.paths |> CCList.map Trace.to_path in
   let graphs = paths 
-    |> CCList.map (fun path -> Abstraction.of_path path |> fun abs -> abs.DFA.delta) in
+    |> CCList.map (fun path -> 
+      Abstraction.of_path path |> fun pf -> pf.Abstraction.automata.DFA.delta) in
   CCList.fold_left Graph.merge (fun _ -> []) graphs
 
 (* printing and whatnot *)

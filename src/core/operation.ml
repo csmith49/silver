@@ -107,7 +107,23 @@ module Defaults = struct
         v
         (S.Expr.negative v));
   }
-  let arithmetic = [plus; mult; div; minus; abs]
+  let max = {
+    name = Name.of_string "max";
+    symbol = "max";
+    signature = f [rational ; rational] rational;
+    value_encoding = lift_binary (fun v -> fun w ->
+      Value.of_num (max (Value.to_num v) (Value.to_num w)));
+    solver_encoding = lift_binary (fun v -> fun w ->
+      S.Expr.ite
+        (S.Expr.geq
+          v
+          w
+        )
+        v
+        w
+      );
+  }
+  let arithmetic = [plus; mult; div; minus; abs; max]
 
   (* comparisons *)
   let eq = {

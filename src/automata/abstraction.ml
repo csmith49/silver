@@ -46,7 +46,18 @@ module State = struct
 end
 
 (* a proof is therefore just an automata with states/labels as above *)
-type proof = (State.t, Label.t) DFA.t
+type proof_automata = (State.t, Label.t) DFA.t
+type proof = {
+  automata : proof_automata;
+  cost : Cost.t;
+}
+
+let lift (f : proof_automata -> proof_automata) : proof -> proof = fun p -> {
+  p with automata = f p.automata;
+}
+
+let to_dfa : proof -> proof_automata = fun p -> p.automata
+let to_cost : proof -> Cost.t = fun p -> p.cost
 
 (* and an abstraction is a list of proofs *)
 type t = proof list
@@ -57,8 +68,8 @@ type abstraction = t
 (* negates every automata in the language *)
 let negate : t -> t = fun abs -> CCList.map (fun p -> 
   p
-  |> DFA.complete ~s_eq:State.eq ~a_eq:Label.eq State.dump
-  |> DFA.negate ~s_eq:State.eq) abs
+  |> lift (DFA.complete ~s_eq:State.eq ~a_eq:Label.eq State.dump)
+  |> lift (DFA.negate ~s_eq:State.eq)) abs
 
 (* we have an intermediate type - never stored, just constructed, tested against, and discarded *)
 module Conjunction = struct
@@ -67,17 +78,17 @@ module Conjunction = struct
 
   (* lift a proof to a conjunction - corresponds to singleton list construction *)
   let lift (p : proof) : t = 
-    let proof = DFA.complete ~s_eq:State.eq ~a_eq:Label.eq State.dump p in
+    let proof = lift (DFA.complete ~s_eq:State.eq ~a_eq:Label.eq State.dump) p in
       {
-        DFA.states = CCList.map CCList.pure proof.DFA.states;
-        start = [proof.DFA.start];
-        delta = Graph.map CCList.pure CCList.hd proof.DFA.delta;
-        final = CCList.map CCList.pure proof.DFA.final;
+        DFA.states = CCList.map CCList.pure proof.automata.DFA.states;
+        start = [proof.automata.DFA.start];
+        delta = Graph.map CCList.pure CCList.hd proof.automata.DFA.delta;
+        final = CCList.map CCList.pure proof.automata.DFA.final;
       }
 
   (* and add a proof to a conjunction - this might be thought of as cons *)
   let conjoin (p : proof) (c : t) : t = 
-    let proof = DFA.complete ~s_eq:State.eq ~a_eq:Label.eq State.dump p in
+    let proof = DFA.complete ~s_eq:State.eq ~a_eq:Label.eq State.dump p.automata in
     DFA.intersect ~a_eq:Label.eq CCList.cons CCList.hd CCList.tl proof c
 
   (* construct a conjunction - if possible - from an abstraction *)
@@ -204,11 +215,21 @@ let of_path : Program.path -> proof = fun path ->
       cost = None;
     }) path in
   let states = Graph.Path.to_states path in
-  {
+  let automata = {
     DFA.states = states;
     start = CCList.hd states;
     delta = Graph.map_edge DFA.Alphabet.lift (Graph.of_path ~v_eq:State.eq path);
     final = [states |> CCList.last_opt |> CCOpt.get_exn];
+  } in
+  let cost = path |> Graph.Path.to_word
+    |> CCList.filter_map (fun w -> match w with
+        | Program.Label.Concrete c -> Some c.Program.Label.cost
+        | _ -> None)
+    |> CCList.fold_left AST.Infix.(+.) (AST.Infix.int 0)
+    |> Simplify.simplify in
+  {
+    automata = automata;
+    cost = cost;
   }
 
 (* printing - we just go proof by proof *)
@@ -216,4 +237,7 @@ let format f : t -> unit = function
   | [] -> CCFormat.fprintf f "EMPTY"
   | abs ->
     CCFormat.fprintf f "@[<v>%a@;@]"
-      (CCFormat.list ~sep:(CCFormat.return "@;----@;") (DFA.format State.format Label.format)) abs
+      (CCFormat.list 
+        ~sep:(CCFormat.return "@;----@;") 
+        (DFA.format State.format Label.format))
+      (abs |> CCList.map to_dfa)

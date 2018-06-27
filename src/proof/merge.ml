@@ -4,8 +4,8 @@ type proof = Abstraction.proof
 (* step 1 is to determine possible states to merge two automata on *)
 let merge_candidates (left : proof) (right : proof) : State.t list =
   (* just compute interesction of branch states *)
-  let branch_states = left.DFA.states 
-    |> CCList.filter (fun l -> CCList.mem State.eq l right.DFA.states)
+  let branch_states = left.Abstraction.automata.DFA.states 
+    |> CCList.filter (fun l -> CCList.mem State.eq l right.Abstraction.automata.DFA.states)
     |> CCList.filter (fun s -> CCList.exists Program.Tag.is_branch s.State.tags) in
   branch_states
 
@@ -30,16 +30,23 @@ let candidate_to_problem
   (left : proof) (right : proof) : problem option =
     (* check to see the disjunction leading to the branch state is equivalent *)
     let edge = Disjunction.Edge.of_environment env in
-    let prefix = Disjunction.of_graph edge [left.DFA.start] [branch] left in
+    let prefix = 
+      Disjunction.of_graph edge [left.Abstraction.automata.DFA.start] [branch] left in
     if not (CCOpt.equal Disjunction.eq 
       prefix 
-      (Disjunction.of_graph edge [right.DFA.start] [branch] right)) 
+      (Disjunction.of_graph edge [right.Abstraction.automata.DFA.start] [branch] right)) 
     then None
     else try 
       let prefix = prefix |> CCOpt.get_exn in Some {
       prefix = prefix;
-      left = Disjunction.of_graph prefix.Disjunction.right [branch] left.DFA.final left |> CCOpt.get_exn;
-      right = Disjunction.of_graph prefix.Disjunction.right [branch] right.DFA.final right |> CCOpt.get_exn;
+      left = Disjunction.of_graph 
+        prefix.Disjunction.right 
+        [branch] left.Abstraction.automata.DFA.final left 
+          |> CCOpt.get_exn;
+      right = Disjunction.of_graph 
+        prefix.Disjunction.right
+        [branch] right.Abstraction.automata.DFA.final right 
+          |> CCOpt.get_exn;
     } with _ -> None
 
 (* we must check mergability wrt axioms *)
@@ -97,20 +104,29 @@ let can_merge
       | _ -> false
 
 (* can we convert a problem back to a proof *)
-let problem_to_proof (left : proof) (right : proof) : problem -> proof = fun prob -> {
-  DFA.states = CCList.uniq State.eq (left.DFA.states @ right.DFA.states);
-  start = left.DFA.start;
-  final = CCList.uniq State.eq (left.DFA.states @ right.DFA.states);
-  delta = Graph.overlay 
-    left.DFA.delta 
-    (Graph.overlay 
-      right.DFA.delta 
-      (Graph.overlay 
-        (Disjunction.to_graph prob.prefix)
-        (Graph.overlay 
-          (Disjunction.to_graph prob.left)
-          (Disjunction.to_graph prob.right))));
-}
+let to_proof 
+  (start : State.t) (final : State.t list)
+  (left_cost : AST.expr) (right_cost : AST.expr) : problem -> proof = fun prob ->
+  let automata = {
+    DFA.states = CCList.uniq State.eq (
+        (Disjunction.states prob.prefix) @ 
+        (Disjunction.states prob.left) @ 
+        (Disjunction.states prob.right)
+      );
+    DFA.start = start;
+    DFA.final = final;
+    DFA.delta = Graph.merge
+      (Disjunction.to_graph prob.prefix)
+      (Graph.merge
+        (Disjunction.to_graph prob.left)
+        (Disjunction.to_graph prob.right)
+      );
+  } in
+  let cost = Cost.(max left_cost right_cost) in
+  {
+    Abstraction.automata = automata;
+    cost = cost;
+  }
 
 (* step 4 is to try all possible merges *)
 let merge
@@ -140,7 +156,11 @@ let merge
     let _ = if verbose then
       CCFormat.printf "[MERGING] %d resulting solution(s).@." (CCList.length solutions) in
     (* convert solutions back to proofs *)
-    solutions |> CCList.map (problem_to_proof left right)
+    let start = left.Abstraction.automata.DFA.start in
+    let final = left.Abstraction.automata.DFA.final in
+    let left_cost = left.Abstraction.cost in
+    let right_cost = right.Abstraction.cost in
+    solutions |> CCList.map (to_proof start final left_cost right_cost)
 
 let merge_abstraction
   ?(verbose=false)
