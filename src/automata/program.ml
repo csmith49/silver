@@ -45,22 +45,31 @@ end
 
 (* tags are used to indicate where we might consider merging or adding back edges *)
 module Tag = struct
-  type t = [ `Loop | `Branch ]
+  type t = [
+    | `Loop of Name.t
+    | `Branch of Name.t
+  ]
+
+  (* equality checks for the same constructor, then the same name *)
+  let eq (left : t) (right : t) : bool = match left, right with
+    | `Loop l, `Loop r -> Name.eq l r
+    | `Branch l, `Branch r -> Name.eq l r
+    | _ -> false
 
   (* printing *)
   let format f = function
-    | `Loop -> CCFormat.fprintf f "LOOP"
-    | `Branch -> CCFormat.fprintf f "BRANCH"
+    | `Loop n -> CCFormat.fprintf f "LOOP[%a]" Name.format n
+    | `Branch n -> CCFormat.fprintf f "BRANCH[%a]" Name.format n
     | _ -> CCFormat.fprintf f "UNKNOWN"
 
   let to_string : t -> string = CCFormat.to_string format
 
   let is_branch : t -> bool = function
-    | `Branch -> true
+    | `Branch _ -> true
     | _ -> false
   
   let is_loop : t -> bool = function
-    | `Loop -> true
+    | `Loop _ -> true
     | _ -> false
 end
 
@@ -130,7 +139,8 @@ let rec graph_of_ast (ast : AST.t) (n : State.t) : State.t * graph = match ast w
   | AST.ITE (b, l, r) ->
     let (ln, lg) = graph_of_ast l n in
     let (rn, rg) = graph_of_ast r n in
-    let fresh_n = State.extend n "ite" |> State.set_tag `Branch in
+    let fresh_n = State.extend n "ite" in
+    let fresh_n = fresh_n |> State.set_tag (`Branch fresh_n.State.id) in
     let true_edge = Label.Assume b in
     let false_edge = Label.Assume (AST.FunCall (Name.of_string "not", [b])) in
     let delta = (fun s ->
@@ -138,7 +148,8 @@ let rec graph_of_ast (ast : AST.t) (n : State.t) : State.t * graph = match ast w
       if State.eq s fresh_n then [(true_edge, ln); (false_edge, rn)] @ old_edges else old_edges) in
         (fresh_n, delta)
   | AST.While (b, e) ->
-    let fresh_n = State.extend n "while" |> State.set_tag `Loop in
+    let fresh_n = State.extend n "while" in
+    let fresh_n = fresh_n |> State.set_tag (`Loop fresh_n.State.id) in
     let (en, eg) = graph_of_ast e fresh_n in
     let loop_edge = Label.Assume b in
     let exit_edge = Label.Assume (AST.FunCall (Name.of_string "not", [b])) in

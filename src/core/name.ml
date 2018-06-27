@@ -44,6 +44,8 @@ let to_tuple : t -> (string * int * int) = fun n ->
 (* comparison is done polymorphically - no natural order to induce anyways *)
 let compare (left : t) (right : t) = Pervasives.compare (to_tuple left) (to_tuple right)
 
+let eq = fun l -> fun r -> 0 = (compare l r)
+
 (* hashing *)
 (* hashing ignores the counter *)
 let hash : t -> int = fun n -> CCHash.poly (n.id, n.hash)

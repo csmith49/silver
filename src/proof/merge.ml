@@ -3,11 +3,15 @@ type proof = Abstraction.proof
 
 (* step 1 is to determine possible states to merge two automata on *)
 let merge_candidates (left : proof) (right : proof) : State.t list =
+  (* left and right must be loop-free *)
+  if (Abstraction.loop_free left) && (Abstraction.loop_free right) then
   (* just compute interesction of branch states *)
   let branch_states = left.Abstraction.automata.DFA.states 
     |> CCList.filter (fun l -> CCList.mem State.eq l right.Abstraction.automata.DFA.states)
     |> CCList.filter (fun s -> CCList.exists Program.Tag.is_branch s.State.tags) in
   branch_states
+  (* if l/r not loop-free, no possible states *)
+  else []
 
 (* merge problems consist of a prefix, a left postfix, and a right postfix *)
 type problem = {

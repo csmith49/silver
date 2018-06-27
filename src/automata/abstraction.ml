@@ -8,7 +8,6 @@ module State = struct
     tags : Program.Tag.t list;
     (* if we're generating interpolants lazily, these may not be filled in *)
     annotation : AST.expr option;
-    cost : AST.expr option;
   }
 
   (* printing *)
@@ -33,7 +32,6 @@ module State = struct
     id = s.Program.State.id;
     tags = s.Program.State.tags;
     annotation = None;
-    cost = None;
   }
 
   (* canonical dump state *)
@@ -41,7 +39,6 @@ module State = struct
     id = Name.of_string "dump";
     tags = [];
     annotation = None;
-    cost = None;
   }
 end
 
@@ -58,6 +55,9 @@ let lift (f : proof_automata -> proof_automata) : proof -> proof = fun p -> {
 
 let to_dfa : proof -> proof_automata = fun p -> p.automata
 let to_cost : proof -> Cost.t = fun p -> p.cost
+
+let loop_free : proof -> bool = fun pf ->
+  DFA.loop_free ~s_eq:State.eq pf.automata
 
 (* and an abstraction is a list of proofs *)
 type t = proof list
@@ -207,13 +207,18 @@ let covers ?(verbose=false) (p : Program.t) (abs : t) : answer =
       end
 
 (* given a path we know is correct, we can build a proof *)
+(* these states should be made disjoint *)
 let of_path : Program.path -> proof = fun path ->
-  let path = Graph.Path.map (fun n -> {
-      State.id = n.Program.State.id;
-      tags = n.Program.State.tags;
-      annotation = None;
-      cost = None;
-    }) path in
+  let state_map = path
+    |> Graph.Path.to_states
+    |> CCList.mapi (fun i -> fun s -> 
+        let s' = {
+          State.id = Name.extend_by_int s.Program.State.id i;
+          tags = s.Program.State.tags;
+          annotation = None;
+        } in
+        (s, s')) in
+  let path = Graph.Path.map (fun s -> CCList.assoc ~eq:Program.State.eq s state_map) path in
   let states = Graph.Path.to_states path in
   let automata = {
     DFA.states = states;
