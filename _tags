@@ -5,6 +5,7 @@
 "src/logic": include
 "src/proof": include
 "src/synth": include
+"src/search": include
 
 true: annot, bin_annot
 true: use_menhir, table, explain
