@@ -62,6 +62,11 @@ let loop_free : proof -> bool = fun pf ->
 (* and an abstraction is a list of proofs *)
 type t = proof list
 
+(* pulling costs out of proofs *)
+let cost : t -> Cost.t = fun abs -> abs
+  |> CCList.map to_cost
+  |> Cost.sum
+
 (* alias for the following module *)
 type abstraction = t
 

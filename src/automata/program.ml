@@ -47,19 +47,24 @@ end
 module Tag = struct
   type t = [
     | `Loop of Name.t
-    | `Branch of Name.t
+    | `Branch of Name.t * AST.expr
+    | `Assumption of Name.t * AST.expr * bool
   ]
 
   (* equality checks for the same constructor, then the same name *)
   let eq (left : t) (right : t) : bool = match left, right with
     | `Loop l, `Loop r -> Name.eq l r
-    | `Branch l, `Branch r -> Name.eq l r
+    | `Branch (ln, le), `Branch (rn, re) -> 
+      (Name.eq ln rn) && (AST.eq le re)
+    | `Assumption (ln, le, lb), `Assumption (rn, re, rb) -> 
+      (AST.eq le re) && (le = re) && (Name.eq ln rn)
     | _ -> false
 
   (* printing *)
   let format f = function
     | `Loop n -> CCFormat.fprintf f "LOOP[%a]" Name.format n
-    | `Branch n -> CCFormat.fprintf f "BRANCH[%a]" Name.format n
+    | `Branch (n, e) -> CCFormat.fprintf f "BRANCH[%a|%a]" Name.format n AST.format e
+    | `Assumption (n, e, b) -> CCFormat.fprintf f "ASSUME[%a|%a|%b]" Name.format n AST.format e b
     | _ -> CCFormat.fprintf f "UNKNOWN"
 
   let to_string : t -> string = CCFormat.to_string format
@@ -70,6 +75,16 @@ module Tag = struct
   
   let is_loop : t -> bool = function
     | `Loop _ -> true
+    | _ -> false
+
+  let is_assumption : t -> bool = function
+    | `Assumption _ -> true
+    | _ -> false
+
+  (* for checking assumptions line up *)
+  let complementary : t -> t -> bool = fun l -> fun r -> match l, r with
+    | `Assumption (ln, le, lb), `Assumption (rn, re, rb) ->
+      (Name.eq ln rn) && (lb != rb) && (AST.eq le re)
     | _ -> false
 end
 
@@ -110,7 +125,7 @@ module State = struct
   }
 
   (* comparisons to simplify stuff later *)
-  let eq = (=)
+  let eq l r = Name.eq l.id r.id
 
   (* the canonical dump state *)
   let dump : t = {
@@ -137,10 +152,13 @@ let rec graph_of_ast (ast : AST.t) (n : State.t) : State.t * graph = match ast w
     let delta : graph = fun s -> if State.eq s fresh_n then [(fresh_edge, n)] else [] in
       (fresh_n, delta)
   | AST.ITE (b, l, r) ->
-    let (ln, lg) = graph_of_ast l n in
-    let (rn, rg) = graph_of_ast r n in
     let fresh_n = State.extend n "ite" in
-    let fresh_n = fresh_n |> State.set_tag (`Branch fresh_n.State.id) in
+    let fresh_n = fresh_n 
+      |> State.set_tag (`Branch (fresh_n.State.id, b)) in
+    let (ln, lg) = graph_of_ast l n 
+      |> CCPair.map1 (State.set_tag (`Assumption (fresh_n.id, b, true))) in
+    let (rn, rg) = graph_of_ast r n 
+      |> CCPair.map1 (State.set_tag (`Assumption (fresh_n.id, b, false))) in
     let true_edge = Label.Assume b in
     let false_edge = Label.Assume (AST.FunCall (Name.of_string "not", [b])) in
     let delta = (fun s ->

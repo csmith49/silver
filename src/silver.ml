@@ -1,7 +1,5 @@
 (* we'll need this eventually, but this is just to make sure it's included in the build process for now *)
-open Check
 open Interpolant
-open History
 open CCFormat
 
 (* get the cmd line args *)
@@ -50,8 +48,15 @@ while (not !finished) do
         begin match Abstraction.covers ~verbose:!Global.verbose automata abstraction with
           (* CASE 1.1: The automata is covered. The abstraction serves as a proof that p is correct *)
           | Abstraction.Covers -> begin
-              finished := true;
-              printf "[DONE] Automata covered. Program correct.";
+              printf "[COVERED] Automata covered. Checking costs...@.";
+              let abs_cost = Abstraction.cost abstraction in
+              if Cost.cost_acceptable ~verbose:!Global.verbose env pre post cost abs_cost then
+                begin
+                  finished := true;
+                  printf "[DONE] Cost is small. Program correct.";
+                end
+              else
+                printf "[COST] Cost is too high. Continuing the search.@.";
             end
           (* CASE 1.2: There is some path in the program not covered by the abstraction *)
           | Abstraction.Counterexample path ->

@@ -179,7 +179,7 @@ let loop_free ?(v_eq = (=)) (source : 'v list) (dest : 'v list) : ('v, 'e) t -> 
     let ongoing = paths
       |> CCList.filter reaches_dest
       |> CCList.flat_map (fun path -> extend path g) in
-    aux ongoing
+    if CCList.is_empty ongoing then true else aux ongoing
   in let init_paths = source |> CCList.flat_map (fun v -> step v g) |> CCList.map Path.of_step in
     aux init_paths
     

@@ -110,12 +110,13 @@ let encode : t -> Constraint.t = fun dis ->
     |> CCList.map (fun c -> CCList.fold_left Constraint.Mk.and_ Constraint.Mk.true_ c)
   in CCList.fold_left Constraint.Mk.or_ Constraint.Mk.false_ constraints
 
-(* this might not be right *)
+(* convert disjunction to abstraction graph *)
 let to_graph : t -> (Abstraction.State.t, Abstraction.Label.t DFA.Alphabet.t) Graph.t = fun dis ->
   let paths = dis.paths |> CCList.map Trace.to_path in
-  let graphs = paths 
-    |> CCList.map (fun path -> 
-      Abstraction.of_path path |> fun pf -> pf.Abstraction.automata.DFA.delta) in
+  let graphs = paths
+    |> CCList.map (Graph.of_path ~v_eq:Program.State.eq)
+    |> CCList.map (Graph.map_edge DFA.Alphabet.lift)
+    |> CCList.map (Graph.map Abstraction.State.of_program_state Abstraction.State.to_program_state) in
   CCList.fold_left Graph.merge (fun _ -> []) graphs
 
 (* printing and whatnot *)
