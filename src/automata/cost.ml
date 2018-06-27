@@ -4,6 +4,12 @@ let format = AST.format
 
 let max l r = AST.FunCall (Name.of_string "max", [l ; r])
 
+let add = AST.Infix.(+.)
+
+let zero : t = AST.Infix.int 0
+
+let simplify = Simplify.simplify
+
 let of_expr : AST.expr -> t = fun x -> x
 
 let check_lt 

@@ -225,8 +225,8 @@ let of_path : Program.path -> proof = fun path ->
     |> CCList.filter_map (fun w -> match w with
         | Program.Label.Concrete c -> Some c.Program.Label.cost
         | _ -> None)
-    |> CCList.fold_left AST.Infix.(+.) (AST.Infix.int 0)
-    |> Simplify.simplify in
+    |> CCList.fold_left Cost.add Cost.zero
+    |> Cost.simplify in
   {
     automata = automata;
     cost = cost;
