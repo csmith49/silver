@@ -161,4 +161,5 @@ module Make = functor (C : CONTEXT) -> struct
   end
 end
 
+(* TODO : set context to generate total models only *)
 module Default = Make(struct let context = Z3.mk_context [] end)

@@ -84,9 +84,8 @@ let concretize (c : Types.Environment.t) : t -> AST.expr -> AST.expr list = fun 
 module Defaults = struct
   let log = [
     axiom_of_string "log(x) > 0";
+    axiom_of_string "log(x / y) == log(x) - log(y)";
+    axiom_of_string "(x <= 0) => log(x) == 0"
   ]
-  let abs = [
-    axiom_of_string "abs(y - x) == abs(x - y)";
-  ]
-  let all = log @ abs
+  let all = log 
 end

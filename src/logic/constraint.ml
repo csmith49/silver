@@ -152,7 +152,19 @@ let check_wrt_theory ?(verbose=false) (c : Types.Environment.t) : Theory.t -> co
       let _ = if verbose then printf 
         "[THEORY/RESULT] Result is %a@;" Answer.format answer in
       answer
-    | _ as answer ->
+    | Answer.Unsat as answer -> 
       let _ = if verbose then printf
         "[THEORY] Result is %a@;" Answer.format answer in
+      answer
+    | Answer.Unknown ->
+      let axioms = cs
+        |> CCList.map (fun c -> c.expression)
+        |> CCList.flat_map (Theory.concretize c theory)
+        |> CCList.map (of_expr c) in
+      let num_axioms = CCList.length axioms in
+      let _ = if verbose then printf
+        "[THEORY] First pass is unknown. Checking with %d axioms...@;" num_axioms in
+      let answer = check (cs @ axioms) in
+      let _ = if verbose then printf
+        "[THEORY/RESULT] Result is %a@;" Answer.format answer in
       answer
