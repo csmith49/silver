@@ -173,6 +173,7 @@ let can_generalize
 let generalize
   ?(verbose=false)
   ?(theory=Theory.Defaults.all)
+  (index : int)
   (strategy : Trace.Strategy.t)
   (axioms : Probability.axiom list)
   (interpolant_strategy : Interpolant.Strategy.t)
@@ -182,7 +183,7 @@ let generalize
     (* compute candidates *)
     let candidates = candidates proof in
     let _ = if verbose then
-      CCFormat.printf "[GENERALIZING] %d candidate point(s).@." (CCList.length candidates) in
+      CCFormat.printf "[GENERALIZING %d] %d candidate point(s).@." index (CCList.length candidates) in
     (* generate base problems *)
     let start = proof.Abstraction.automata.DFA.start in
     let final = proof.Abstraction.automata.DFA.final in
@@ -192,7 +193,7 @@ let generalize
     let problems = problems
       |> CCList.flat_map (axiomatize_problem strategy axioms) in
     let _ = if verbose then
-      CCFormat.printf "[GENERALIZING] %d axiomatizations.@." (CCList.length problems) in
+      CCFormat.printf "[GENERALIZING %d] %d axiomatizations.@." index (CCList.length problems) in
     (* filter problems to only get solutions *)
     let solutions = problems
       |> CCList.filter_map (fun prob ->
@@ -200,7 +201,7 @@ let generalize
           | Some interp -> Some (interp, prob)
           | _ -> None) in
     let _ = if verbose then
-      CCFormat.printf "[GENERALIZING] %d resulting solution(s).@." (CCList.length solutions) in
+      CCFormat.printf "[GENERALIZING %d] %d resulting solution(s).@." index (CCList.length solutions) in
     (* convert solutions back to proofs *)
     solutions |> CCList.map (fun (i, p) -> to_proof start final cost i p)
 
@@ -221,7 +222,7 @@ let generalize_abstraction
     (* compute the generalizations *)
     let generalizations = indexed
       |> CCList.flat_map (fun (i, proof) ->
-          let gens = generalize ~verbose:verbose ~theory:theory
+          let gens = generalize ~verbose:verbose ~theory:theory i
             strategy axioms
             inteprolant_strategy
             env pre post cost proof in

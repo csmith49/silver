@@ -124,8 +124,8 @@ let to_graph : t -> (Abstraction.State.t, Abstraction.Label.t DFA.Alphabet.t) Gr
 
 (* printing and whatnot *)
 let format f : t -> unit = fun dis ->
-  CCFormat.fprintf f "@[<v>%a@;@]@."
-    (CCFormat.list ~sep:(CCFormat.return "@;") Trace.format) dis.paths
+  CCFormat.fprintf f "@[<v>%a@]"
+    (CCFormat.list ~sep:(CCFormat.return "@;---@;") Trace.format) dis.paths
 
 (* get the free variables in the union of all traces *)
 let free_variables : t -> Interpolant.Variable.t list = fun dis -> dis.paths

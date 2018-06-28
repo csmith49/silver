@@ -86,6 +86,10 @@ module Answer = struct
     | Unsat -> true
     | _ -> false
 
+  let is_unknown : t -> bool = function
+    | Unknown -> true
+    | _ -> false
+
   let format f : t -> unit = function
     | Sat m -> CCFormat.fprintf f "SAT:@; %a" Value.Model.format m
     | Unsat -> CCFormat.fprintf f "UNSAT"
@@ -118,8 +122,7 @@ let check_wrt_theory ?(verbose=false) (c : Types.Environment.t) : Theory.t -> co
     (* we have to check if we know we know *)
     | Answer.Sat model ->
       (* if the model is consistent with an actual evaluation, it's really a model *)
-      let _ = if verbose then printf 
-        "@[<v>[THEORY/RESULT] Sat with model@; @[%a@]@;@]" Value.Model.format model else () in 
+      let _ = if verbose then printf "[THEORY/RESULT] Result is Sat@;" in 
       let consistent = try
         let values = cs
           |> CCList.map (fun c -> c.expression)
@@ -147,9 +150,9 @@ let check_wrt_theory ?(verbose=false) (c : Types.Environment.t) : Theory.t -> co
           num_axioms else () in
       let answer = check (cs @ axioms) in
       let _ = if verbose then printf 
-        "[THEORY/RESULT] Result is %a@;" Answer.format answer else () in
+        "[THEORY/RESULT] Result is %a@;" Answer.format answer in
       answer
     | _ as answer ->
       let _ = if verbose then printf
-        "[THEORY] Result is %a@;" Answer.format answer else () in
+        "[THEORY] Result is %a@;" Answer.format answer in
       answer

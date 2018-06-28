@@ -10,7 +10,7 @@ type problem = {
 
 (* printing *)
 let format f : problem -> unit = fun prob ->
-  CCFormat.fprintf f "@[<v>Prefix:@;%a@;Left:@;%a@;Right:@;%a@;@]@."
+  CCFormat.fprintf f "@[<v>Prefix +------->@;%a@;Left +--------->@;%a@;Right +-------->@;%a@]"
     Disjunction.format prob.prefix
     Disjunction.format prob.left
     Disjunction.format prob.right
@@ -128,7 +128,7 @@ let can_merge
     let right_constraint = Constraint.Mk.and_ (Disjunction.encode right) post_right in
     let conjunction =
       pre :: (Disjunction.encode prefix) :: (Constraint.Mk.or_ left_constraint right_constraint) :: [] in
-    match Constraint.check_wrt_theory env theory conjunction with
+    match Constraint.check_wrt_theory ~verbose:(Global.show_checking ()) env theory conjunction with
       | Constraint.Answer.Unsat -> true
       | _ -> false
 
@@ -159,6 +159,7 @@ let to_proof
 let merge
   ?(verbose=false)
   ?(theory=Theory.Defaults.all)
+  (left_index : int) (right_index : int)
   (strategy : Trace.Strategy.t)
   (axioms : Probability.axiom list)
   (env : Types.Environment.t) 
@@ -168,7 +169,8 @@ let merge
     (* compute candidates *)
     let candidates = candidates left right in
     let _ = if verbose then 
-      CCFormat.printf "[MERGING] %d candidate point(s).@." (CCList.length candidates) in
+      CCFormat.printf "[MERGING %d/%d] %d candidate point(s).@." 
+        left_index right_index (CCList.length candidates) in
     (* generate base problems *)
     let start = left.Abstraction.automata.DFA.start in
     let final = left.Abstraction.automata.DFA.final @ right.Abstraction.automata.DFA.final in
@@ -178,12 +180,14 @@ let merge
     let problems = problems
       |> CCList.flat_map (axiomatize_problem strategy axioms) in
     let _ = if verbose then
-      CCFormat.printf "[MERGING] %d axiomatizations at candidate point.@." (CCList.length problems) in
+      CCFormat.printf "[MERGING %d/%d] %d total axiomatizations.@." 
+        left_index right_index (CCList.length problems) in
     (* filter problems to maintain only solutions *)
     let solutions = problems
       |> CCList.filter (can_merge ~verbose:verbose ~theory:theory env pre post cost) in
     let _ = if verbose then
-      CCFormat.printf "[MERGING] %d resulting solution(s).@." (CCList.length solutions) in
+      CCFormat.printf "[MERGING %d/%d] %d resulting solution(s).@." 
+        left_index right_index (CCList.length solutions) in
     (* convert solutions back to proofs *)
     let left_cost = left.Abstraction.cost in
     let right_cost = right.Abstraction.cost in
@@ -217,6 +221,7 @@ let merge_abstraction
           let left = CCList.assoc ~eq:(=) l indexed in
           let right = CCList.assoc ~eq:(=) r indexed in
           let merges = merge ~verbose:verbose ~theory:theory
+            l r
             strategy axioms env
             pre post cost
             left right in

@@ -30,13 +30,16 @@ let to_string : t -> string = fun n ->
   let i = if n.counter = 0 then "" else "_" ^ (string_of_int n.counter) in
     (n.id) ^ i ^ h
 
+let rec shorten_hash : int -> int = fun h ->
+  if h <= 999 then h else shorten_hash (CCInt.floor_div h 10)
+
 (* formatting *)
 let rec format f = fun n -> 
   CCFormat.fprintf f "%s%a%a" n.id format_counter n.counter format_hash n.hash
 and format_counter f = fun c -> if c = 0 then CCFormat.fprintf f "" else
   CCFormat.fprintf f "_%d" c
 and format_hash f = fun h -> if h = 0 then CCFormat.fprintf f "" else
-  CCFormat.fprintf f ":%d" h
+  CCFormat.fprintf f ":%d" (shorten_hash h)
 
 let to_tuple : t -> (string * int * int) = fun n ->
   (n.id, n.hash, n.counter)

@@ -24,7 +24,7 @@ module Label = struct
     | Draw (i, e) ->
       CCFormat.fprintf f "@[%a ~ %a@]" AST.format_id i AST.format e
     | Concrete c ->
-      CCFormat.fprintf f "@[Pr_@[{%a ~ %a}@]@[[!%a]@]@ <=@ %a@]"
+      CCFormat.fprintf f "@[<hv 1>Pr_@[{%a@ ~@ %a}@]@;@[[!%a]@]@ <=@ %a@]"
       AST.format_id c.variable
       AST.format c.expression
       AST.format c.semantics
@@ -96,10 +96,12 @@ module State = struct
   }
     
   (* printing *)
-  let format f = fun n ->
+  let format_w_tags f = fun n ->
     let tag_fmt = CCFormat.within "[" "]" (CCFormat.list ~sep:(CCFormat.return " /@ ") Tag.format) in
     if CCList.is_empty n.tags then CCFormat.fprintf f "%a" Name.format n.id else
       CCFormat.fprintf f "@[%a%a@]" Name.format n.id tag_fmt n.tags
+  let format f = fun n ->
+    CCFormat.fprintf f "%a" Name.format n.id
 
   (* we make states unique when we can *)
   let counter = ref 0

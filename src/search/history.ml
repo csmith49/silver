@@ -19,10 +19,21 @@ let default : branch = {
   history = [];
 }
 
+(* branch summary just gives an intution as to how we arrived at the current abstraction *)
+let format_step f : step -> unit = function
+  | `Add p -> CCFormat.fprintf f "Add"
+  | `Merge (l, r, p) -> CCFormat.fprintf f "Merge(%d,%d)" l r
+  | `Generalize (i, p) -> CCFormat.fprintf f "Generalize(%d)" i
+let format_history f : step list -> unit = fun history ->
+  CCFormat.fprintf f "@[<hv>%a@]" (CCFormat.list ~sep:(CCFormat.return ":@;") format_step) history
+let format_branch f : branch -> unit = fun b -> format_history f b.history
+
+
 (* a heuristic assigns some value to a branch *)
 module Heuristic = struct
   type t = branch -> int
-  let default : t = fun b -> CCList.length b.history
+  let shortest_history : t = fun b -> CCList.length b.history
+  let smallest_abstraction : t = fun b -> CCList.length b.abstraction
 end
 
 (* our search is a heap maintaining branches *)
@@ -42,12 +53,12 @@ module Frontier = CCHeap.Make(Node)
 type t = Frontier.t
 
 (* initializing a history just places the default branch *)
-let init : t =
-  Frontier.add Frontier.empty (Node.of_branch Heuristic.default default)
+let init : Heuristic.t -> t = fun h ->
+  Frontier.add Frontier.empty (Node.of_branch h default)
 
 (* adding to the frontier requires a heuristic, but we have a default *)
-let add ?(heuristic=Heuristic.default) (history : t) (b : branch) : t =
-  let node = Node.of_branch heuristic b in
+let add (h : Heuristic.t) (history : t) (b : branch) : t =
+  let node = Node.of_branch h b in
     Frontier.add history node
 
 (* jsut a view to the top *)

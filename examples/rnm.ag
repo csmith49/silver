@@ -1,4 +1,4 @@
-{{ n >= 2 }}
+{{ n >= 1 }}
 
 best = 1;
 max = -1;
@@ -12,5 +12,5 @@ while (i <= n) {
     i = i + 1;
 }
 
-{{ for j . ((j >= 1) & ( j <= n)) => (a[best] > q[j] - (4/e) * log(n/beta)) }}
+{{ for j . ((j >= 1) & ( j <= n)) => (q[best] > q[j] - (4/e) * log(n/beta)) }}
 {{ beta }}
