@@ -67,6 +67,10 @@ type conjunction = t list
 
 let format_conjunction = CCFormat.list ~sep:(CCFormat.return "@ & @ ") format
 
+let format_encoding f : conjunction -> unit = fun cs ->
+  CCFormat.fprintf f "@[<v>%a@]@." 
+    (CCFormat.list ~sep:(CCFormat.return "&@; ") CCFormat.string) (cs |> CCList.map (fun c -> S.Expr.to_string c.encoding))
+
 let conjunction_to_string : conjunction -> string = fun conj -> conj
   |> CCList.map to_string
   |> CCString.concat ", "

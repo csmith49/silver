@@ -41,8 +41,8 @@ module Edge = struct
       |> CCList.filter_map Trace.environment
       |> maximal_environment in
     {
-      index = i;
-      variables = Trace.Vars.extend i env;
+      index = i - 1;
+      variables = Trace.Vars.extend (i - 1) env;
     }
 
   let of_environment : Types.Environment.t -> t = fun env -> 
@@ -86,7 +86,7 @@ let of_list (edge : Edge.t) (paths : abs_path list) : t option =
       |> CCList.sort Pervasives.compare
       |> CCList.map path_to_program_path
       |> CCList.map (Trace.of_path edge.Edge.variables) in
-    let right = Edge.of_traces ~offset:edge.Edge.index traces in Some {
+    let right = Edge.of_traces ~offset:(edge.Edge.index) traces in Some {
       paths = traces;
       left = edge;
       right = right;
@@ -113,7 +113,8 @@ let encode : t -> Constraint.t = fun dis ->
   let frames = dis.paths
     |> CCList.map (fun t -> Trace.environment t |> CCOpt.get_exn)
     |> CCList.map (Edge.frame_formula dis.right) in
-  let constraints = CCList.map2 (@) encodings frames 
+  let constraints = CCList.map2 (@) encodings frames
+    |> fun _ -> encodings
     |> CCList.map (fun c -> CCList.fold_left Constraint.Mk.and_ Constraint.Mk.true_ c)
   in CCList.fold_left Constraint.Mk.or_ Constraint.Mk.false_ constraints
 

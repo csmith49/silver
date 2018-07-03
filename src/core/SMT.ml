@@ -64,6 +64,9 @@ module Make = functor (C : CONTEXT) -> struct
       | _ -> raise (Invalid_argument "that's not a bool")
 
     let to_rational : t -> Rational.t = fun e -> Rational.of_ratio (Z3.Arithmetic.Real.get_ratio e)
+
+    (* printing - no real format *)
+    let to_string = Z3.Expr.to_string
   end
 
   module F = struct
@@ -153,8 +156,12 @@ module Make = functor (C : CONTEXT) -> struct
       |> Z3.Quantifier.expr_of_quantifier
 
     let bounded_forall (x : Expr.t) (lower : Expr.t) (upper : Expr.t) (body : Expr.t) : Expr.t =
-      forall x (Expr.implies (Expr.and_ (Expr.is_int x)
-        (Expr.and_ (Expr.geq x lower) (Expr.leq x upper))) body)
+      (* (Expr.and_ *)
+        (* (Expr.and_ (Expr.is_int lower) (Expr.is_int upper))   *)
+        (forall x (Expr.implies (Expr.and_ 
+          (Expr.is_int x)
+          (Expr.and_ (Expr.geq x lower) (Expr.leq x upper))) body))
+      (* ) *)
 
     let exists (x : Expr.t) (body : Expr.t) : Expr.t =
       Z3.Quantifier.mk_exists_const

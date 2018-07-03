@@ -178,19 +178,19 @@ let can_generalize
     let postfix_constraint = Disjunction.encode postfix in
     (* encoding interpolants using body left and body right *)
     let succ_one i = Disjunction.Edge.update_expr i body_left
-      |> Interpolant.Induction.simplify_succ_interpolant
+      (* |> Interpolant.Induction.simplify_succ_interpolant *)
       |> Simplify.simplify
       |> Constraint.of_expr body_left.Disjunction.Edge.variables in
     let ante_one i = Disjunction.Edge.update_expr i body_left
-      |> Interpolant.Induction.simplify_ante_interpolant strength
+      (* |> Interpolant.Induction.simplify_ante_interpolant strength *)
       |> Simplify.simplify
       |> Constraint.of_expr body_left.Disjunction.Edge.variables in
     let succ_two i = Disjunction.Edge.update_expr i body_right
-      |> Interpolant.Induction.simplify_succ_interpolant
+      (* |> Interpolant.Induction.simplify_succ_interpolant *)
       |> Simplify.simplify
       |> Constraint.of_expr body_right.Disjunction.Edge.variables in
     let ante_two i = Disjunction.Edge.update_expr i body_right
-      |> Interpolant.Induction.simplify_ante_interpolant strength
+      (* |> Interpolant.Induction.simplify_ante_interpolant strength *)
       |> Simplify.simplify
       |> Constraint.of_expr body_right.Disjunction.Edge.variables in
     (* fidn the first interpolant where the appropriate conditions are met *)
