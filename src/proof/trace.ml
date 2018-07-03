@@ -4,11 +4,13 @@ module SSA = struct
 
   let increment : AST.id -> t -> t = fun id -> fun c -> match id with
     | AST.Var n -> Types.Environment.increment n c
-    | AST.IndexedVar (n, _) -> Types.Environment.increment n c
+    (* | AST.IndexedVar (n, _) -> Types.Environment.increment n c *)
+    | AST.IndexedVar _ -> c
 
   let update_id : AST.id -> t -> AST.id = fun id -> fun c -> match id with
     | AST.Var n -> AST.Var (Name.set_counter n (Types.Environment.get_counter n c))
-    | AST.IndexedVar (n, e) -> AST.IndexedVar (Name.set_counter n (Types.Environment.get_counter n c), e)
+    (* | AST.IndexedVar (n, e)  -> AST.IndexedVar (Name.set_counter n (Types.Environment.get_counter n c), e) *)
+    | AST.IndexedVar _ as i -> i
 
   let rec update_expr : AST.expr -> t -> AST.expr = fun e -> fun c -> match e with
     | AST.Literal _ -> e
