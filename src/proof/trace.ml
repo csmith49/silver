@@ -115,11 +115,11 @@ module Vars = struct
     let rational = Types.Base Types.Rational in
     let boolean = Types.Base Types.Boolean in
     let local = [
-      (Name.of_string "w", rational);
-      (Name.of_string "h", boolean);
+      (Name.of_string "w", rational, i);
+      (Name.of_string "h", boolean, i);
     ]
-    in CCList.fold_left (fun e -> fun (n, t) ->
-        Types.Environment.update n t e)
+    in CCList.fold_left (fun e -> fun (n, t, i) ->
+        Types.Environment.update_w_count n t i e)
       env local
 end
 

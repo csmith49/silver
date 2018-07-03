@@ -128,6 +128,6 @@ let default = Strategy.S (fun env -> fun vars -> [])
 
 let overly_specific = Strategy.S (fun env -> fun vars ->
   let answer = Parse.parse_expr 
-    "forall(j, 1, i, abs(a[j] - q[j]) < (2 / e) * log(n / beta))" 
+    "forall(j, 1, i, (abs(a[j] - q[j]) < (2 / e) * log(n / beta)) & (w == i * (beta / n)) & (a[best] >= a[j]) )" 
   in [answer]
   )

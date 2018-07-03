@@ -99,6 +99,8 @@ module Environment = struct
     (* get and increment *)
     let get : Name.t -> t -> int = fun n -> NameMap.get_or ~default:0 (Name.reset_counter n)
 
+    let set : Name.t -> int -> t -> t = NameMap.add
+    
     let increment: Name.t -> t -> t = fun n -> fun c ->
       let curr = get n c in NameMap.add (Name.reset_counter n) (curr + 1) c
   
@@ -162,6 +164,12 @@ module Environment = struct
 
   let update (x : Name.t) (b : t_alias) (env : t) : t = 
     {env with types = NameMap.add x b env.types}
+
+  let update_w_count (x : Name.t) (b : t_alias) (i : int) (env : t) : t =
+    {
+      types = NameMap.add x b env.types;
+      counters = Counter.set x i env.counters;
+    }
 
   let max (left : t) (right : t) : t = {
     left with counters = Counter.max left.counters right.counters;
