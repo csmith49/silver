@@ -138,7 +138,7 @@ let to_proof
 let can_generalize
   ?(verbose=false)
   ?(theory=Theory.Defaults.all)
-  ?(strength=2)
+  ?(strength=1)
   (strategy : Interpolant.Strategy.t)
   (env : Types.Environment.t)
   (pre : AST.annotation) (post : AST.annotation) (cost : AST.cost)

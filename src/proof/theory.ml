@@ -87,5 +87,10 @@ module Defaults = struct
     axiom_of_string "log(x / y) == log(x) - log(y)";
     axiom_of_string "(x <= 0) => log(x) == 0"
   ]
-  let all = log 
+
+  let field = [
+    axiom_of_string "x * (1 / x) == 1";
+    axiom_of_string "1 / (1 / x) == x";
+  ]
+  let all = log
 end

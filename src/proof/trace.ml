@@ -7,12 +7,11 @@ module SSA = struct
     (* | AST.IndexedVar (n, _) -> Types.Environment.increment n c *)
     | AST.IndexedVar _ -> c
 
-  let update_id : AST.id -> t -> AST.id = fun id -> fun c -> match id with
+  let rec update_id : AST.id -> t -> AST.id = fun id -> fun c -> match id with
     | AST.Var n -> AST.Var (Name.set_counter n (Types.Environment.get_counter n c))
     (* | AST.IndexedVar (n, e)  -> AST.IndexedVar (Name.set_counter n (Types.Environment.get_counter n c), e) *)
-    | AST.IndexedVar _ as i -> i
-
-  let rec update_expr : AST.expr -> t -> AST.expr = fun e -> fun c -> match e with
+    | AST.IndexedVar (n, e) -> AST.IndexedVar (n, update_expr e c)
+  and update_expr : AST.expr -> t -> AST.expr = fun e -> fun c -> match e with
     | AST.Literal _ -> e
     | AST.Identifier i -> AST.Identifier (update_id i c)
     | AST.FunCall (f, args) -> AST.FunCall (f, CCList.map (fun e -> update_expr e c) args)
