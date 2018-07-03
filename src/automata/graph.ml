@@ -155,7 +155,13 @@ let merge (g : ('v, 'e) t) (h : ('v, 'e) t) : ('v, 'e) t = fun v -> (g v) @ (h v
 
 (* merging staes makes two states be considered equivalent for purposes of out edges *)
 let merge_states ?(v_eq = (=)) (left : 'v) (right : 'v) (g : ('v, 'e) t) : ('v, 'e) t = fun n ->
-  if v_eq n right then g left else g n
+  if (v_eq n right) || (v_eq n left) then (g left) @ (g right) else g n
+
+let pinch ?(v_eq = (=)) (states : 'v list) (g : ('v, 'e) t) : ('v, 'e) t = match states with
+  | [] -> g
+  | x :: [] -> g
+  | x :: xs ->
+    CCList.fold_left (fun graph -> fun state -> merge_states ~v_eq:v_eq state x graph) g xs
 
 (* place a graph over another (h ontop of g, obscuring edges equivalent via e_eq) *)
 let overlay ?(v_eq = (=)) ?(e_eq = (=)) (g : ('v, 'e) t) (h : ('v, 'e) t) : ('v, 'e) t = fun v ->

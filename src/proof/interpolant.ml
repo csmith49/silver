@@ -14,7 +14,12 @@ let impl_validity (ante : Constraint.conjunction) (succ : Constraint.conjunction
   } in
   (* construct the formula A & !S *)
   let formula = ante @ (CCList.map negate succ) in
-  match Constraint.check formula with
+  let _ = if (Global.show_checking ()) then 
+    CCFormat.printf "@[<v>[INTERPOLATION] Checking@;%a@]@." Constraint.format_conjunction formula in
+  let answer = Constraint.check formula in
+  let _ = if (Global.show_checking ()) then
+    CCFormat.printf "[INTERPOLATION] Result is %a@." Constraint.Answer.format answer in
+  match answer with
     (* valid iff A & !S unsat *)
     | Constraint.Answer.Unsat -> true
     | _ -> false
@@ -66,3 +71,9 @@ module Strategy = struct
 end
 
 let default = Strategy.S (fun env -> fun vars -> [])
+
+let overly_specific = Strategy.S (fun env -> fun vars ->
+  let answer = Parse.parse_expr 
+    "forall(j, ((j > 0) & ( j <= i) & isint(j)) => abs(a[j] - q[j]) < (2 / e) * log(n / beta))" 
+  in [answer]
+  )

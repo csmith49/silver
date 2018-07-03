@@ -2,17 +2,17 @@
 
 best = 1;
 max = -1;
-i = 1;
+i = 0;
 flag = true;
-while (i <= n) {
+while (i < n) {
+    i = i + 1;
     a[i] ~ lap(e/2) + q[i];
     if ((a[i] > max) | flag) then {
         best = i;
         max = a[i];
     }
     flag = false;
-    i = i + 1;
 }
 
-{{ for j . ((j >= 1) & ( j <= n)) => (q[best] > q[j] - (4/e) * log(n/beta)) }}
+{{ for j . ((j >= 1) & ( j <= n) & isint(j)) => (q[best] > q[j] - (4/e) * log(n/beta)) }}
 {{ beta }}

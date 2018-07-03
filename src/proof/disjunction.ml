@@ -3,6 +3,7 @@ module State = Abstraction.State
 module Label = Abstraction.Label
 
 type path = (State.t, Label.t) Graph.Path.t
+type abs_path = (State.t, Label.t DFA.Alphabet.t) Graph.Path.t
 
 (* goal number one is to be able to convert subgraphs into disjunctive encodings *)
 module Edge = struct
@@ -75,27 +76,28 @@ let rec path_to_program_path : path -> Program.path = function
     let dest' = Abstraction.State.to_program_state dest in
       (src', lbl, dest') :: (path_to_program_path rest)
 
+let of_list (edge : Edge.t) (paths : abs_path list) : t option =
+  let concrete_paths = CCList.filter_map DFA.concretize paths in
+  (* check to see if we lost any *)
+  if (CCList.length paths) = (CCList.length concrete_paths) then
+    let traces = concrete_paths
+      |> CCList.sort Pervasives.compare
+      |> CCList.map path_to_program_path
+      |> CCList.map (Trace.of_path edge.Edge.variables) in
+    let right = Edge.of_traces traces in Some {
+      paths = traces;
+      left = edge;
+      right = right;
+    }
+  else None
+
 (* construction from automata from state to state *)
 let of_graph (left : Edge.t) 
   (source : State.t list) (dest : State.t list) 
   (proof : Abstraction.proof) : t option =
     let paths = Graph.bfs_list ~v_eq:State.eq 
       source dest proof.Abstraction.automata.DFA.delta in
-    let concrete_paths = CCList.filter_map DFA.concretize paths in
-    (* check if we lost any paths along the way *)
-    if (CCList.length paths) = (CCList.length concrete_paths)
-      then
-        let traces = concrete_paths 
-          |> CCList.sort Pervasives.compare 
-          |> CCList.map path_to_program_path 
-          |> CCList.map (Trace.of_path left.Edge.variables) in
-        let right = Edge.of_traces traces in
-        Some {
-          paths = traces;
-          left = left;
-          right = right;
-        }
-      else None
+    of_list left paths
 
 let axiomatize (strategy : Trace.Strategy.t) (axioms : Probability.axiom list) : t -> t list = fun dis ->
   dis.paths

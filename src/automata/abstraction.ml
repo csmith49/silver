@@ -212,18 +212,16 @@ let covers ?(verbose=false) (p : Program.t) (abs : t) : answer =
       end
 
 (* given a path we know is correct, we can build a proof *)
-(* these states should be made disjoint *)
 let of_path : Program.path -> proof = fun path ->
-  let state_map = path
-    |> Graph.Path.to_states
-    |> CCList.mapi (fun i -> fun s -> 
-        let s' = {
-          State.id = Name.extend_by_int s.Program.State.id i;
-          tags = s.Program.State.tags;
-          annotation = None;
-        } in
-        (s, s')) in
-  let path = Graph.Path.map (fun s -> CCList.assoc ~eq:Program.State.eq s state_map) path in
+  let update_state i s = {
+    State.id = Name.extend_by_int s.Program.State.id i;
+    tags = s.Program.State.tags;
+    annotation = None;
+  } in
+  let path = path
+    |> CCList.mapi (fun i -> fun (src, lbl, dest) ->
+      (update_state i src, lbl, update_state (i + 1) dest)
+    ) in
   let states = Graph.Path.to_states path in
   let automata = {
     DFA.states = states;

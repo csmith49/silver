@@ -1,72 +1,91 @@
 module State = Abstraction.State
 type proof = Abstraction.proof
+type label = Program.Tag.t
 
-(* generalization problems have a prefix, a body, and a postfix *)
+type path = Disjunction.abs_path
+
+(* gen. problems have a prefix, body, and postfix - we maintain label for ease of use *)
 type problem = {
-  loop_points : State.t * State.t;
+  label : label;
   prefix : Disjunction.t;
   body : Disjunction.t;
   postfix : Disjunction.t;
+  fst : State.t list;
+  snd : State.t list;
 }
 
-(* determine which states can act as a candidate *)
-let candidates (proof : proof) : (State.t * State.t) list =
-  (* proof better be loop-free... *)
+let format f = fun prob ->
+CCFormat.fprintf f "@[<v>Prefix +------->@;%a@;Body +--------->@;%a@;Postfix +------>@;%a@]@;"
+  Disjunction.format prob.prefix
+  Disjunction.format prob.body
+  Disjunction.format prob.postfix
+
+let visits_twice (label : label) (path : path) : bool =
+  let tags_along_path = path
+    |> Graph.Path.to_states
+    |> CCList.filter_map (fun s -> CCList.head_opt s.State.tags) in
+  let count = CCList.count ((=) label) tags_along_path in
+    count = 2
+
+(* determine which tags are suitable candidates *)
+let candidates (proof : proof) : label list =
+  (* the proof really should be loop free *)
   if Abstraction.loop_free proof then
-    (* find the states tagged with a loop *)
-    let loop_states = proof.Abstraction.automata.DFA.states
-      |> CCList.filter (fun s -> CCList.exists Program.Tag.is_loop s.State.tags) in
-    (* now compute all paths *)
+    (* find all possible loop tags *)
+    let loop_tags = proof.Abstraction.automata.DFA.states
+      |> CCList.flat_map (fun s -> s.State.tags)
+      |> CCList.filter Program.Tag.is_loop in
+    (* compute all the paths *)
     let start = proof.Abstraction.automata.DFA.start in
     let final = proof.Abstraction.automata.DFA.final in
     let paths = Graph.bfs_list ~v_eq:State.eq [start] final proof.Abstraction.automata.DFA.delta in
-    (* consider all pairs of loop states *)
-    let candidates = [loop_states ; loop_states]
-      |> CCList.cartesian_product
-      (* now filter out candidates that don't have the same loop tag *)
-      |> CCList.filter (fun ls -> match ls with
-          | [fst ; snd] ->
-            let fst_tag = fst.State.tags |> CCList.filter Program.Tag.is_loop |> CCList.hd in
-            let snd_tag = snd.State.tags |> CCList.filter Program.Tag.is_loop |> CCList.hd in
-              fst_tag = snd_tag
-          | _ -> false) in
-    (* now we'll filter candidates by those realizable by all paths *)
-    let loops_along_paths = paths 
-      |> CCList.map Graph.Path.to_states
-      |> CCList.map (CCList.filter (fun s -> CCList.exists Program.Tag.is_loop s.State.tags)) in
-    candidates
-      |> CCList.filter (fun ls -> CCList.for_all ((=) ls) loops_along_paths)
-      |> CCList.filter_map (fun ls -> match ls with
-          | [fst ; snd] -> Some (fst, snd)
-          | _ -> None)
+    (* now select loop tags that appear exactly twice in each trace *)
+    loop_tags
+      |> CCList.filter (fun t -> CCList.for_all (visits_twice t) paths)
   else []
 
-(* convert candidate states to problems *)
+(* find the pair of states with the provided label along the path *)
+let loop_states (label : label) (path : path) : (State.t * State.t) option = path
+  |> Graph.Path.to_states
+  |> CCList.filter (fun s -> CCList.exists ((=) label) s.State.tags)
+  |> fun xs -> match xs with
+    | [fst ; snd] -> Some (fst, snd)
+    | _ -> None
+
+(* convert candidate tag to a problem *)
 let to_problem
   (env : Types.Environment.t)
-  (loop_points : State.t * State.t)
+  (label : label)
   (start : State.t) (final : State.t list)
   (proof : proof) : problem option =
     let edge = Disjunction.Edge.of_environment env in
-    let fst, snd = loop_points in
-    (* pull the prefix first *)
-    match Disjunction.of_graph edge [start] [fst] proof with
+    (* compute the fst and snd loop points for all paths *)
+    let start = proof.Abstraction.automata.DFA.start in
+    let final = proof.Abstraction.automata.DFA.final in
+    let fst, snd = proof.Abstraction.automata.DFA.delta
+      |> Graph.bfs_list ~v_eq:State.eq [start] final
+      |> CCList.filter_map (loop_states label)
+      |> CCList.split in
+    (* pull the prefix *)
+    match Disjunction.of_graph edge [start] fst proof with
       | Some prefix ->
         let edge = prefix.Disjunction.right in
-        begin match Disjunction.of_graph edge [fst] [snd] proof with
+        begin match Disjunction.of_graph edge fst snd proof with
           | Some body ->
             let edge = body.Disjunction.right in
-            begin match Disjunction.of_graph edge [snd] final proof with
+            begin match Disjunction.of_graph edge snd final proof with
               | Some postfix -> Some {
-                  loop_points = loop_points;
+                  label = label;
                   prefix = prefix;
                   body = body;
                   postfix = postfix;
+                  fst = fst;
+                  snd = snd;
                 }
-              | None -> None end 
+              | None -> None end
           | None -> None end
       | None -> None
-
+    
 (* generalization should happen wrt axioms *)
 let axiomatize_problem
   (strategy : Trace.Strategy.t)
@@ -81,7 +100,7 @@ let axiomatize_problem
       |> CCList.cartesian_product
       |> CCList.filter_map (fun xs -> match xs with
           | [pre ; body ; post] -> Some {
-              loop_points = prob.loop_points;
+              prob with
               prefix = pre;
               body = body;
               postfix = post;
@@ -91,9 +110,11 @@ let axiomatize_problem
 (* by merging everything together, we arrive back at a proof *)
 let to_proof 
   (start : State.t) (final : State.t list) 
-  (cost : Cost.t) (interpolant : Interpolant.t) (prob : problem) : proof = 
-    let fst, snd = prob.loop_points in
-    let fst' = { fst with annotation = Some interpolant } in
+  (cost : Cost.t) (interpolant : Interpolant.t) (prob : problem) : proof =
+    let fst = prob.fst
+      |> CCList.map (fun s -> {s with State.annotation = Some interpolant}) in
+    let snd = prob.snd
+      |> CCList.map (fun s -> {s with State.annotation = Some interpolant}) in
     let automata = {
       DFA.states = CCList.uniq ~eq:State.eq (
         (Disjunction.states prob.prefix) @ 
@@ -106,10 +127,7 @@ let to_proof
         (Graph.merge
           (Disjunction.to_graph prob.body)
           (Disjunction.to_graph prob.postfix)) 
-        |> Graph.merge_states ~v_eq:State.eq fst snd
-        |> Graph.map 
-            (fun s -> if State.eq s fst then fst' else s)
-            (fun s -> if State.eq s fst' then fst else s);
+        |> Graph.pinch ~v_eq:State.eq (fst @ snd)
     } in
     {
       cost = cost;
@@ -124,8 +142,9 @@ let can_generalize
   (env : Types.Environment.t)
   (pre : AST.annotation) (post : AST.annotation) (cost : AST.cost)
   (prob : problem) : Interpolant.t option =
-    let _ = if verbose then
-      CCFormat.printf "[GENERALIZING] Checking a problem@." in
+    let _ = if (Global.show_checking ()) then
+      CCFormat.printf "[GENERALIZING] Checking problem@;%a@." 
+      format prob in
     (* aliases *)
     let prefix = prob.prefix in
     let body = prob.body in
@@ -209,7 +228,7 @@ let generalize
 let generalize_abstraction 
   ?(verbose=false)
   ?(theory=Theory.Defaults.all)
-  ?(inteprolant_strategy=Interpolant.default)
+  ?(interpolant_strategy=Interpolant.default)
   (env : Types.Environment.t)
   (pre : AST.annotation) (post : AST.annotation) (cost : AST.cost)
   (abs : Abstraction.t) : (int * proof) list =
@@ -224,7 +243,7 @@ let generalize_abstraction
       |> CCList.flat_map (fun (i, proof) ->
           let gens = generalize ~verbose:verbose ~theory:theory i
             strategy axioms
-            inteprolant_strategy
+            interpolant_strategy
             env pre post cost proof in
           gens |> CCList.map (fun p -> (i, p))) in
     let _ = if verbose then

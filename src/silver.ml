@@ -100,6 +100,7 @@ while (not !finished) do
         (* handle generalization *)
         if not !finished then
           let gens = Generalize.generalize_abstraction ~verbose:(Global.show_branching ())
+            ~interpolant_strategy:Interpolant.overly_specific
             env pre post cost abstraction in
           gens
             |> CCList.map (fun (i, proof) -> History.Extend.generalize branch i proof)

@@ -27,6 +27,7 @@ module Make = functor (C : CONTEXT) -> struct
     let div : t -> t -> t =  Z3.Arithmetic.mk_div C.context
     let minus (l : t) (r : t) = Z3.Arithmetic.mk_sub C.context [l; r]
     let negative : t -> t = Z3.Arithmetic.mk_unary_minus C.context
+    let is_int : t -> t = Z3.Arithmetic.Real.mk_is_integer C.context
 
     (* boolean stuff *)
     let and_ (l : t) (r : t) : t = Z3.Boolean.mk_and C.context [l; r]
@@ -146,7 +147,7 @@ module Make = functor (C : CONTEXT) -> struct
     let forall (x : Expr.t) (body : Expr.t) : Expr.t = 
       Z3.Quantifier.mk_forall_const 
         C.context 
-        [x] 
+        [x]
         body 
         None [] [] None None 
       |> Z3.Quantifier.expr_of_quantifier

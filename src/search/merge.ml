@@ -106,7 +106,7 @@ let can_merge
   (pre : AST.annotation)
   (post : AST.annotation) (cost : AST.cost)
   (prob : problem) : bool =
-    let _ = if verbose then
+    let _ = if (Global.show_checking ()) then
       CCFormat.printf "@[[MERGING] Checking problem@;%a@;@]@."
         format prob in
     (* aliases *)

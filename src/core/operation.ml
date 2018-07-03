@@ -256,7 +256,14 @@ module Defaults = struct
       let uif = S.F.mk "log" [S.Sort.rational] S.Sort.rational in
         fun xs -> S.F.apply uif xs;
   }
-  let complicated = [log]
+  let isint = {
+    name = Name.of_string "isint";
+    symbol = "isint";
+    signature = f [rational] boolean;
+    value_encoding = lift_unary (fun v -> Value.of_bool true);
+    solver_encoding = lift_unary S.Expr.is_int;
+  }
+  let complicated = [log; isint]
 
   (* all the defined functions *)
   let defined = unary @ arithmetic @ comparisons @ logical @ distributions @ complicated @ quantifiers
