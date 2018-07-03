@@ -49,7 +49,10 @@ let merge_opt (left : t option) (right : t option) : t option =
 (* modifying an expr non-recursively *)
 let rec apply (e : expr) (s : t) : expr = match e with
   | AST.Literal _ -> e
-  | AST.Identifier i -> IdMap.get_or ~default:e i s
+  | AST.Identifier i -> begin match i with
+      | AST.Var n -> IdMap.get_or ~default:e i s
+      | AST.IndexedVar (n, e) -> AST.Identifier (AST.IndexedVar (n, apply e s))
+    end
   | AST.FunCall (f, args) -> AST.FunCall (f, CCList.map (fun e -> apply e s) args)
 
 (* if possible, generate a t that when applied to the left, matches the right *)

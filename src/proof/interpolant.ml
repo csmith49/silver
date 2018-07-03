@@ -4,6 +4,60 @@ module S = SMT.Default
 (* an interpolant is just a constraint - we maintain our ast and the logical encoding *)
 type t = AST.expr
 
+(* induction manipulation *)
+module Induction = struct
+  let bound (x : AST.id) (l : AST.expr) (r : AST.expr) : AST.expr =
+    let x' = AST.Identifier x in
+    let int_restriction = AST.FunCall(Name.of_string "isint", [x']) in
+      AST.Infix.(int_restriction &. (x' >= l) &. (x' <= r))
+
+  (* convert pieces of a universally-qauntified formula to a weak form *)
+  let weak_induction_form (var : AST.id) (x : AST.id) (l : AST.expr) (r : AST.expr) (e : AST.expr) : AST.expr =
+    let i = AST.Identifier var in
+    let sub = Substitution.singleton x i in
+    let e' = Substitution.apply e sub in
+    let bound = bound var l r in
+      AST.Infix.(bound =>. e')
+
+  (* replace universal quantifier with freshest inductive case *)
+  let simplify_succ_interpolant : t -> t = function
+    | AST.FunCall (f, [AST.Identifier x; l; u; e]) when Name.eq f (Name.of_string "forall") ->
+      let sub = Substitution.singleton x u in 
+      let bound = bound x l u in
+      let e' = Substitution.apply AST.Infix.(bound =>. e) sub in
+        e'
+    | _ as i -> i
+
+  let extend_id (x : AST.id) (i : int) : AST.id = match x with
+    | AST.Var n -> AST.Var (Name.set_counter n i)
+    | AST.IndexedVar (n, e) ->
+      let n' = Name.set_counter n i in
+        AST.IndexedVar (n', e)
+
+  let simplify_ante_interpolant (strength : int) : t -> t = function
+    | AST.FunCall (f, [AST.Identifier x; l; u; e]) when Name.eq f (Name.of_string "forall") ->
+      let range = CCList.range 1 strength in
+      let fresh_variables = range
+        |> CCList.map (extend_id x) in
+      let disjoint = [fresh_variables ; fresh_variables]
+        (* grab all distinct pairs *)
+        |> CCList.cartesian_product
+        |> CCList.filter_map (fun xs -> match xs with [fst ; snd] -> Some (fst, snd) | _ -> None)
+        |> CCList.filter (fun (x, y) -> x != y)
+        (* convert to an expression *)
+        |> CCList.map (fun (x, y) ->
+            let x' = AST.Identifier x in
+            let y' = AST.Identifier y in
+            AST.Infix.( !.(x' =. y') )
+          ) in
+      (* generate the weak induction forms *)
+      let formulas = fresh_variables
+        |> CCList.map (fun fv -> weak_induction_form fv x l u e) in
+      (* and conjoin *)
+        CCList.fold_left AST.Infix.(&.) (AST.Infix.bool true) (formulas @ disjoint)
+    | _ as i -> i
+end
+
 (* for sequence interpolants, our conditions are all in the form of validity of implications *)
 (* that is, we wish to compute validity of A => S *)
 let impl_validity (ante : Constraint.conjunction) (succ : Constraint.conjunction) : bool =
@@ -74,6 +128,6 @@ let default = Strategy.S (fun env -> fun vars -> [])
 
 let overly_specific = Strategy.S (fun env -> fun vars ->
   let answer = Parse.parse_expr 
-    "forall(j, ((j > 0) & ( j <= i) & isint(j)) => abs(a[j] - q[j]) < (2 / e) * log(n / beta))" 
+    "forall(j, 1, i, abs(a[j] - q[j]) < (2 / e) * log(n / beta))" 
   in [answer]
   )

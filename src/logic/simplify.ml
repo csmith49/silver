@@ -13,7 +13,7 @@ let apply : template -> (AST.expr -> AST.expr option) = function
 module Defaults = struct
   let not_idempotent = mk "!(!(x))" "x"
 
-  let universal_to_existential = mk "!(forall(x, y))" "exists(x, !(y))"
+  let universal_to_existential = mk "!(forall(x, l, u, y))" "exists(x, (isint(x) & (x >= l) & (x <= u)) => !(y))"
   
   let distribute_not_and = mk "!(x & y)" "!x | !y"
   
@@ -25,6 +25,14 @@ module Defaults = struct
 
   let drop_existential = mk "exists(x, y)" "y"
 
+  let disjunctive_identity_one = mk "false | x" "x"
+
+  let disjunctive_identity_two = mk "x | false" "x"
+
+  let conjunctive_identity_one = mk "true & x" "x"
+
+  let conjunctive_identity_two = mk "x & true" "x"
+
   (* these are the templates that will be applied *)
   (* we make no guarantee of confluence, termination, etc. *)
   (* but we assume the trs is normalizing below *)
@@ -35,7 +43,11 @@ module Defaults = struct
     distribute_not_or;
     distribute_not_implication;
     universal_to_existential;
-    drop_existential
+    drop_existential;
+    conjunctive_identity_one;
+    conjunctive_identity_two;
+    disjunctive_identity_one;
+    disjunctive_identity_two;
   ]
 end
 

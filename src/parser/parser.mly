@@ -28,7 +28,7 @@
 /* assignments and some control flow */
 %token SEMICOLON PERIOD
 %token ASSIGN DRAW COMMA
-%token WHILE IF THEN ELSE
+%token WHILE IF THEN ELSE IN
 %nonassoc THEN
 %nonassoc ELSE
 
@@ -126,14 +126,21 @@ annotation:
   | xs = delimited(LEFT_DOUBLE_BRACE, quantified_expression, RIGHT_DOUBLE_BRACE) { xs }
 
 quantified_expression:
-  | q = quantifier; i = NAME; PERIOD; e = expression { match q with
+  | EXISTS; i = NAME; PERIOD e = expression 
+    { AST.FunCall (Name.of_string "exists", [AST.Identifier (AST.Var i); e]) }
+  | FORALL; i = NAME; IN; 
+    LEFT_BRACKET; l = expression; COMMA; u = expression; RIGHT_BRACKET; 
+    PERIOD; e = expression 
+      { AST.FunCall (Name.of_string "forall", [AST.Identifier (AST.Var i); l; u; e]) }
+  | e = expression { e }
+  /* | q = quantifier; i = NAME; PERIOD; e = expression { match q with
     | AST.Exists -> AST.FunCall (Name.of_string "exists", [AST.Identifier (AST.Var i); e])
     | AST.ForAll -> AST.FunCall (Name.of_string "forall", [AST.Identifier (AST.Var i); e])}
   | e = expression { e }
 
 %inline quantifier:
   | EXISTS { AST.Exists }
-  | FORALL { AST.ForAll }
+  | FORALL { AST.ForAll } */
 
 /* extension 2: syntax for explicit costs */
 cost:

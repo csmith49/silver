@@ -217,10 +217,10 @@ module Defaults = struct
   let forall = {
     name = Name.of_string "forall";
     symbol = "forall";
-    signature = f [rational; boolean] boolean;
-    value_encoding = lift_unary (fun _ -> raise (Encoding_error "cannot evaluate universal"));
+    signature = f [rational; rational; rational; boolean] boolean;
+    value_encoding = (fun _ -> raise (Encoding_error "cannot evaluate universal"));
     solver_encoding = fun xs -> match xs with
-      | [n; e] -> S.Quantifier.forall n e;
+      | [n; l; u; e] -> S.Quantifier.bounded_forall n l u e;
       | _ -> raise (Encoding_error "incorrect format for quantifier");
   }
   let quantifiers = [exists; forall]

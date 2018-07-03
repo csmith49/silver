@@ -138,6 +138,7 @@ let to_proof
 let can_generalize
   ?(verbose=false)
   ?(theory=Theory.Defaults.all)
+  ?(strength=2)
   (strategy : Interpolant.Strategy.t)
   (env : Types.Environment.t)
   (pre : AST.annotation) (post : AST.annotation) (cost : AST.cost)
@@ -176,16 +177,27 @@ let can_generalize
     let body_constraint = Disjunction.encode body in
     let postfix_constraint = Disjunction.encode postfix in
     (* encoding interpolants using body left and body right *)
-    let encode_interpolant i = (
-        Constraint.of_expr body_left.Disjunction.Edge.variables (Disjunction.Edge.update_expr i body_left),
-        Constraint.of_expr body_right.Disjunction.Edge.variables (Disjunction.Edge.update_expr i body_right)  
-      ) in
+    let succ_one i = Disjunction.Edge.update_expr i body_left
+      |> Interpolant.Induction.simplify_succ_interpolant
+      |> Simplify.simplify
+      |> Constraint.of_expr body_left.Disjunction.Edge.variables in
+    let ante_one i = Disjunction.Edge.update_expr i body_left
+      |> Interpolant.Induction.simplify_ante_interpolant strength
+      |> Simplify.simplify
+      |> Constraint.of_expr body_left.Disjunction.Edge.variables in
+    let succ_two i = Disjunction.Edge.update_expr i body_right
+      |> Interpolant.Induction.simplify_succ_interpolant
+      |> Simplify.simplify
+      |> Constraint.of_expr body_right.Disjunction.Edge.variables in
+    let ante_two i = Disjunction.Edge.update_expr i body_right
+      |> Interpolant.Induction.simplify_ante_interpolant strength
+      |> Simplify.simplify
+      |> Constraint.of_expr body_right.Disjunction.Edge.variables in
     (* fidn the first interpolant where the appropriate conditions are met *)
     CCList.find_opt (fun i ->
-        let left_i, right_i = encode_interpolant i in
-          Interpolant.([pre_constraint ; prefix_constraint] => [left_i]) &&
-          Interpolant.([left_i ; body_constraint] => [right_i]) &&
-          Interpolant.([right_i ; postfix_constraint] => [post_constraint])) 
+        Interpolant.([pre_constraint ; prefix_constraint] => [succ_one i]) &&
+        Interpolant.([ante_one i ; body_constraint] => [succ_two i]) &&
+        Interpolant.([ante_two i ; postfix_constraint] => [post_constraint])) 
       interpolants
   
 (* generalize a single proof *)
