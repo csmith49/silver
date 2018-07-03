@@ -40,7 +40,7 @@ let rec extract_variables : AST.expr -> (AST.id * Synth.Symbol.t) list = functio
       | _ -> raise (Invalid_argument "Can't use indexed variables in these rules")
     end
   | AST.FunCall (_, args) ->
-    CCList.sort_uniq Pervasives.compare (CCList.flat_map extract_variables args)
+    CCList.uniq (=) (CCList.flat_map extract_variables args)
 
 (* we will easily make axioms from strings - just hijacking some functions from synth *)
 let axiom_of_string : string -> axiom = fun s ->
@@ -89,8 +89,12 @@ module Defaults = struct
   ]
 
   let field = [
-    axiom_of_string "x * (1 / x) == 1";
-    axiom_of_string "1 / (1 / x) == x";
+    axiom_of_string "(x * y) == (y * x)";
+    axiom_of_string "(x * (y * z)) == ((x * y) * z)";
+    axiom_of_string "(x * (y + z)) == ((x * y) + (x * z))";
+    axiom_of_string "((x + y) * z) == ((x * z) + (y * z))";
+    axiom_of_string "(x * 1) == x";
+    axiom_of_string "(!(x == 0)) => ((x * (1 / x)) == 1)";
   ]
-  let all = log
+  let all = log @ field
 end

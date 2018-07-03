@@ -4,6 +4,8 @@ module Symbol = struct
 
   let compare = Name.compare
 
+  let format = Name.format
+
   let to_string : t -> string = Name.to_string
 
   let of_id : AST.id -> t = function
@@ -24,11 +26,20 @@ type synthesizer = AST.expr SymbolGrammar.t
 
 type pattern = AST.expr SymbolGrammar.production
 
+type state = AST.expr SymbolGrammar.state
+
 (* for printing patterns and whatnot *)
 let pattern_to_string : pattern -> string = fun patt ->
   let dummy_inputs = CCList.map Symbol.to_expr patt.SymbolGrammar.input in
   let dummy_expr = patt.SymbolGrammar.apply dummy_inputs in
     AST.expr_to_string dummy_expr
+
+let rec format_state f (state : state) =
+  let entries = state
+    |> SymbolGrammar.KMap.to_list in
+  CCFormat.fprintf f "@[<v>%a@]@." (CCFormat.list ~sep:(CCFormat.return "@;") format_entry) entries
+and format_entry f = fun (k, v) -> CCFormat.fprintf f "@;%a@ ->@ @[%a@]"
+  Symbol.format k (CCFormat.list ~sep:(CCFormat.return ",@ ") AST.format) v
 
 (* for easily making patterns *)
 let update_id (prefix : Name.t) : AST.id -> AST.id = function

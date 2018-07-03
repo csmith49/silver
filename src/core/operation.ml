@@ -74,7 +74,10 @@ module Defaults = struct
     signature = f [rational ; rational] rational;
     value_encoding = lift_binary (fun v -> fun w ->
       Value.of_num ((Value.to_num v) *. (Value.to_num w)));
-    solver_encoding = lift_binary S.Expr.mult;
+    (* solver_encoding = lift_binary S.Expr.mult; *)
+    solver_encoding =
+      let uif = S.F.mk "mult" [S.Sort.rational ; S.Sort.rational] S.Sort.rational in
+        fun xs -> S.F.apply uif xs;
   }
   let div = {
     name = Name.of_string "div";
@@ -82,7 +85,10 @@ module Defaults = struct
     signature = f [rational ; rational] rational;
     value_encoding = lift_binary (fun v -> fun w ->
       Value.of_num ((Value.to_num v) /. (Value.to_num w)));
-    solver_encoding = lift_binary S.Expr.div;
+    (* solver_encoding = lift_binary S.Expr.div; *)
+    solver_encoding =
+      let uif = S.F.mk "div" [S.Sort.rational ; S.Sort.rational] S.Sort.rational in
+        fun xs -> S.F.apply uif xs;
   }
   let minus = {
     name = Name.of_string "minus";
