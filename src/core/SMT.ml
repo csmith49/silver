@@ -10,6 +10,7 @@ module Make = functor (C : CONTEXT) -> struct
     type t = Z3.Sort.sort
     let rational = Z3.Arithmetic.Real.mk_sort C.context
     let boolean = Z3.Boolean.mk_sort C.context
+    let integer = Z3.Arithmetic.Integer.mk_sort C.context
   end
 
   module Symbol = struct
@@ -27,7 +28,8 @@ module Make = functor (C : CONTEXT) -> struct
     let div : t -> t -> t =  Z3.Arithmetic.mk_div C.context
     let minus (l : t) (r : t) = Z3.Arithmetic.mk_sub C.context [l; r]
     let negative : t -> t = Z3.Arithmetic.mk_unary_minus C.context
-    let is_int : t -> t = Z3.Arithmetic.Real.mk_is_integer C.context
+
+    let int_to_rat : t -> t = Z3.Arithmetic.Integer.mk_int2real C.context
 
     (* boolean stuff *)
     let and_ (l : t) (r : t) : t = Z3.Boolean.mk_and C.context [l; r]
@@ -49,6 +51,8 @@ module Make = functor (C : CONTEXT) -> struct
       if b then Z3.Boolean.mk_true C.context else Z3.Boolean.mk_false C.context
     let rational : int -> int -> t =
       Z3.Arithmetic.Real.mk_numeral_nd C.context
+    let int : int -> t =
+      Z3.Arithmetic.Integer.mk_numeral_i C.context
 
     (* and variables *)
     let variable : string -> Sort.t -> t = Z3.Expr.mk_const_s C.context
@@ -56,6 +60,7 @@ module Make = functor (C : CONTEXT) -> struct
     (* some type checking *)
     let is_bool : t -> bool = Z3.Boolean.is_bool
     let is_rational : t -> bool = Z3.Arithmetic.is_rat_numeral
+    let is_int : t -> bool = Z3.Arithmetic.is_int
 
     (* and conversions *)
     let to_bool : t -> bool = fun e -> match Z3.Boolean.get_bool_value e with
@@ -64,6 +69,8 @@ module Make = functor (C : CONTEXT) -> struct
       | _ -> raise (Invalid_argument "that's not a bool")
 
     let to_rational : t -> Rational.t = fun e -> Rational.of_ratio (Z3.Arithmetic.Real.get_ratio e)
+
+    let to_int : t -> int = fun e -> Z3.Arithmetic.Integer.get_int e
 
     (* printing - no real format *)
     let to_string = Z3.Expr.to_string
@@ -158,9 +165,8 @@ module Make = functor (C : CONTEXT) -> struct
     let bounded_forall (x : Expr.t) (lower : Expr.t) (upper : Expr.t) (body : Expr.t) : Expr.t =
       (* (Expr.and_ *)
         (* (Expr.and_ (Expr.is_int lower) (Expr.is_int upper))   *)
-        (forall x (Expr.implies (Expr.and_ 
-          (Expr.is_int x)
-          (Expr.and_ (Expr.geq x lower) (Expr.leq x upper))) body))
+        (forall x (Expr.implies 
+          (Expr.and_ (Expr.geq x lower) (Expr.leq x upper)) body))
       (* ) *)
 
     let exists (x : Expr.t) (body : Expr.t) : Expr.t =

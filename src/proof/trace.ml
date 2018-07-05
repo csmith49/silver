@@ -172,39 +172,49 @@ let axiomatize (strategy : Strategy.t) (axioms : Probability.axiom list) : t -> 
     concretized |> CCList.cartesian_product
 
 (* converting a step to a constraint is straightforward - enc_i *)
-let step_to_constraint (i : int) : step -> Constraint.t = fun s -> 
-  match s.step with (src, lbl, dest) -> match lbl with
+let step_to_constraint (i : int) : step -> Constraint.t = fun s ->
+  let env = Vars.extend i s.variables in
+  match s.step with (src, lbl, dest) -> let enc = match lbl with
     (* x = e & w = wp & h = hp *)
     | Label.Assign (x, e) ->
-      let enc = 
-        ((AST.Identifier x) =. e) &. 
+      ((AST.Identifier x) =. e) &. 
         ((Vars.w i) =. (Vars.w (i - 1))) &. 
-        ((Vars.h i) =. (Vars.h (i - 1))) |> Simplify.simplify in
-      let env = Vars.extend i s.variables in
-        Constraint.of_expr env enc
+        ((Vars.h i) =. (Vars.h (i - 1))) |> Simplify.simplify
     (* (w = wp) & (h = (hp | !b)) *)
     | Label.Assume b ->
-      let enc =
-        ((Vars.w i) =. (Vars.w (i - 1))) &.
+      ((Vars.w i) =. (Vars.w (i - 1))) &.
         (
           ((Vars.h i) =. ((Vars.h (i - 1)) |. (!. b)))
-        ) |> Simplify.simplify in
-      let env = Vars.extend i s.variables in
-        Constraint.of_expr env enc
+        ) |> Simplify.simplify
     (* true & w = wp & h = hp *)
     | Label.Draw _ ->
-      let enc =
-        ((Vars.w i) =. (Vars.w (i - 1))) &. 
-        ((Vars.h i) =. (Vars.h (i - 1))) |> Simplify.simplify in
-      let env = Vars.extend i s.variables in
-        Constraint.of_expr env enc
+      ((Vars.w i) =. (Vars.w (i - 1))) &. 
+        ((Vars.h i) =. (Vars.h (i - 1))) |> Simplify.simplify
     (* semantics & w = wp + cost & h = hp *)
     | Label.Concrete c ->      
-      let enc = c.Label.semantics &.
+      c.Label.semantics &.
         ((Vars.w i) =. ((Vars.w (i - 1)) +. c.Label.cost)) &.
-        ((Vars.h i) =. (Vars.h (i - 1))) |> Simplify.simplify in
-      let env = Vars.extend i s.variables in
-        Constraint.of_expr env enc
+        ((Vars.h i) =. (Vars.h (i - 1))) |> Simplify.simplify
+  in Constraint.of_expr env enc
+
+(* a simpler encoding which eschews halt variables - only works if the trace is feasible *)
+let simple_step_to_constraint (i : int) : step -> Constraint.t = fun s ->
+  let env = Vars.extend i s.variables in
+  match s.step with (src, lbl, dest) -> let enc = match lbl with
+    (* x = e & w = wp *)
+    | Label.Assign (x, e) ->
+      ((AST.Identifier x) =. e) &.
+      ((Vars.w i) =. (Vars.w (i - 1))) |> Simplify.simplify
+    (* w = wp & b *)
+    | Label.Assume b ->
+      ((Vars.w i) =. (Vars.w (i - 1))) &. b |> Simplify.simplify
+    (* w = wp *)
+    | Label.Draw (x, e) ->
+      ((Vars.w i) =. (Vars.w (i - 1))) |> Simplify.simplify
+    (* semantics & w = wp + cost *)
+    | Label.Concrete c ->
+      ((Vars.w i) =. (Vars.w (i - 1)) +. c.Label.cost) &. c.Label.semantics |> Simplify.simplify
+    in Constraint.of_expr env enc
 
 (* to convert a trace to a constraint, we just chain together the step_to_constraints and inc. i *)
 let rec to_constraint ?(index=1) : t -> encoding = function

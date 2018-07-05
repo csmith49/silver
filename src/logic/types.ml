@@ -9,6 +9,7 @@ type t =
   | Function of (t list) * t
   | Variable of Name.t
 and base =
+  | Integer
   | Rational
   | Boolean
 
@@ -28,6 +29,7 @@ let rec to_string : t -> string = function
     let o' = to_string o in
       args' ^ " -> " ^ o'
 and base_to_string : base -> string = function
+  | Integer -> "N"
   | Rational -> "R"
   | Boolean -> "Bool"
 
@@ -41,10 +43,23 @@ let rec format f : t -> unit = function
       (CCFormat.list ~sep:(CCFormat.return "*@ ") format) args
       format c
 and format_base f : base -> unit = function
+  | Integer -> CCFormat.fprintf f "N"
   | Rational -> CCFormat.fprintf f "R"
   | Boolean -> CCFormat.fprintf f "Bool"
 
 let t_alias_to_string = to_string
+
+(* simple enough subtyping *)
+let rec subtypes (small : t) (large : t) : bool = 
+  if small = large then true else match small, large with
+    | Base s, Base l -> if s = l then true else begin match s, l with
+      | Integer, Rational -> true (* here we specify that integers subtype rationals *)
+      | _ -> false end
+    | Indexed (d, c), Indexed (d', c') ->
+      (subtypes c c') && (subtypes d' d)
+    | Function (args, o), Function (args', o') ->
+      (subtypes o o') && (CCList.for_all ((=) true) (CCList.map2 subtypes args' args))
+    | _ -> false
 
 module Sub = struct
   module NameMap = CCMap.Make(Name)

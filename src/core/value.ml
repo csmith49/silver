@@ -38,6 +38,8 @@ let of_rational : Rational.t -> t = fun q -> Number (Rational.to_float q)
 
 let of_bool : bool -> t = fun n -> Boolean n
 
+let of_int : int -> t = fun i -> Number (float_of_int i)
+
 
 (* alias for the following modules *)
 type t_alias = t

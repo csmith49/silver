@@ -13,7 +13,7 @@ let apply : template -> (AST.expr -> AST.expr option) = function
 module Defaults = struct
   let not_idempotent = mk "!(!(x))" "x"
 
-  let universal_to_existential = mk "!(forall(x, l, u, y))" "exists(x, (isint(x) & (x >= l) & (x <= u)) => !(y))"
+  let universal_to_existential = mk "!(forall(x, l, u, y))" "exists(x, ((x >= l) & (x <= u)) => !(y))"
   
   let distribute_not_and = mk "!(x & y)" "!x | !y"
   
@@ -22,6 +22,7 @@ module Defaults = struct
   let distribute_not_implication = mk "!(x => y)" "x & !y"
 
   let inverse_of_inverse = mk "1/(x/y)" "y/x"
+  let rat_inverse_of_inverse = mk "rat(1) /. (x /. y)" "(y /. x)"
 
   let drop_existential = mk "exists(x, y)" "y"
 
@@ -38,6 +39,7 @@ module Defaults = struct
   (* but we assume the trs is normalizing below *)
   let all = [
     inverse_of_inverse;
+    rat_inverse_of_inverse;
     not_idempotent; 
     distribute_not_and;
     distribute_not_or;

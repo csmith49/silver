@@ -6,6 +6,7 @@ exception Conversion_error
 let value_of_expr : S.Expr.t -> Value.t = fun e ->
   if S.Expr.is_bool e then Value.of_bool (S.Expr.to_bool e) else
   if S.Expr.is_rational e then Value.of_rational (S.Expr.to_rational e) else
+  if S.Expr.is_int e then Value.of_int (S.Expr.to_int e) else
     raise Conversion_error
 
 let name_of_symbol : S.Symbol.t -> Name.t =

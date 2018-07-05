@@ -9,12 +9,14 @@ module A = AST
 
 let rational = Types.Base Types.Rational
 let boolean = Types.Base Types.Boolean
+let integer = Types.Base Types.Integer
 
 (* we build up type inference in the bi-directional sense *)
 (* this computes the judgement G |- e -> t *)
 let rec infer (env : E.t) (e : A.expr) : Types.t option = match e with
   (* literals always synthesize their own type, which we can infer statically *)
   | A.Literal l -> begin match l with
+      | A.Integer _ -> Some integer
       | A.Rational _ -> Some rational
       | A.Boolean _ -> Some boolean
     end
@@ -41,11 +43,13 @@ let rec infer (env : E.t) (e : A.expr) : Types.t option = match e with
     end
 (* and this computes the judgement G |- e <- t *)
 and check (env : E.t) (e : A.expr) (t : Types.t) : bool =
-  (* case 1 : equality *)
-  (* actually pretty much the only case *)
   (* note this thing doesn't really know what to do with vars, aka only works on ground types *)
   match infer env e with
-    | Some t' -> t = t'
+    | Some t' -> 
+      (* Case 1 : equality *)
+      if t' = t then true else
+      (* Case 2 : subtyping *)
+      Types.subtypes t' t
     | None -> false
 
 (* now, given a type and an expression, we want to build the constrainst C s.t. *)
@@ -56,6 +60,7 @@ exception TypeMismatch of string
 (* this mirros infer above, but anytime there's a call to check we generate a constraint *)
 let rec type_constraints (e : A.expr) : Types.t * C.t = match e with
   | A.Literal l -> begin match l with
+      | A.Integer _ -> (integer, C.top)
       | A.Rational _ -> (rational, C.top)
       | A.Boolean _ -> (boolean, C.top)
     end

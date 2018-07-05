@@ -39,6 +39,7 @@ module Defaults = struct
   (* some default type constuctors *)
   let rational = T.Base T.Rational
   let boolean = T.Base T.Boolean
+  let integer = T.Base T.Integer
   let alpha = T.Variable (Name.of_string "alpha")
   let f xs o = T.Function (xs, o)
 
@@ -53,24 +54,31 @@ module Defaults = struct
   let negative = {
     name = Name.of_string "negative";
     symbol = "-";
+    signature = f [integer] integer;
+    value_encoding = lift_unary (Value.of_num % (fun f -> f *. -1.0) % Value.to_num);
+    solver_encoding = lift_unary S.Expr.negative;
+  }
+  let rat_negative = {
+    name = Name.of_string "ratNegative";
+    symbol = "-.";
     signature = f [rational] rational;
     value_encoding = lift_unary (Value.of_num % (fun f -> f *. -1.0) % Value.to_num);
     solver_encoding = lift_unary S.Expr.negative;
   }
-  let unary = [not_; negative]
+  let unary = [not_; negative; rat_negative]
 
   (* arithmetic *)
-  let plus = {
-    name = Name.of_string "plus";
-    symbol = "+";
+  let rat_plus = {
+    name = Name.of_string "ratPlus";
+    symbol = "+.";
     signature = f [rational ; rational] rational;
     value_encoding = lift_binary (fun v -> fun w -> 
       Value.of_num ((Value.to_num v) +. (Value.to_num w)));
     solver_encoding = lift_binary S.Expr.plus;
   }
-  let mult = {
-    name = Name.of_string "mult";
-    symbol = "*";
+  let rat_mult = {
+    name = Name.of_string "ratMult";
+    symbol = "*.";
     signature = f [rational ; rational] rational;
     value_encoding = lift_binary (fun v -> fun w ->
       Value.of_num ((Value.to_num v) *. (Value.to_num w)));
@@ -79,9 +87,9 @@ module Defaults = struct
       let uif = S.F.mk "mult" [S.Sort.rational ; S.Sort.rational] S.Sort.rational in
         fun xs -> S.F.apply uif xs;
   }
-  let div = {
-    name = Name.of_string "div";
-    symbol = "/";
+  let rat_div = {
+    name = Name.of_string "ratDiv";
+    symbol = "/.";
     signature = f [rational ; rational] rational;
     value_encoding = lift_binary (fun v -> fun w ->
       Value.of_num ((Value.to_num v) /. (Value.to_num w)));
@@ -90,9 +98,9 @@ module Defaults = struct
       let uif = S.F.mk "div" [S.Sort.rational ; S.Sort.rational] S.Sort.rational in
         fun xs -> S.F.apply uif xs;
   }
-  let minus = {
-    name = Name.of_string "minus";
-    symbol = "-";
+  let rat_minus = {
+    name = Name.of_string "ratMinus";
+    symbol = "-.";
     signature = f [rational ; rational] rational;
     value_encoding = lift_binary (fun v -> fun w ->
       Value.of_num ((Value.to_num v) -. (Value.to_num w)));
@@ -129,7 +137,63 @@ module Defaults = struct
         w
       );
   }
-  let arithmetic = [plus; mult; div; minus; abs; max]
+  let int_to_rat = {
+    name = Name.of_string "rat";
+    symbol = "rat:";
+    signature = f [integer] rational;
+    value_encoding = lift_unary (fun x -> x);
+    solver_encoding = lift_unary S.Expr.int_to_rat;
+  }
+  let increment = {
+    name = Name.of_string "inc";
+    symbol = "inc";
+    signature = f [integer] integer;
+    value_encoding = lift_unary (fun v -> 
+      Value.of_num ((Value.to_num v) +. 1.0));
+    solver_encoding = lift_unary (fun v ->
+      S.Expr.plus v (S.Expr.int 1));
+  }
+  let plus = {
+    name = Name.of_string "plus";
+    symbol = "+";
+    signature = f [integer ; integer] integer;
+    value_encoding = lift_binary (fun v -> fun w -> 
+      Value.of_num ((Value.to_num v) +. (Value.to_num w)));
+    solver_encoding = lift_binary S.Expr.plus;
+  }
+  let mult = {
+    name = Name.of_string "mult";
+    symbol = "*";
+    signature = f [integer ; integer] integer;
+    value_encoding = lift_binary (fun v -> fun w ->
+      Value.of_num ((Value.to_num v) *. (Value.to_num w)));
+    (* solver_encoding = lift_binary S.Expr.mult; *)
+    solver_encoding =
+      let uif = S.F.mk "mult" [S.Sort.rational ; S.Sort.rational] S.Sort.rational in
+        fun xs -> S.F.apply uif xs;
+  }
+  let div = {
+    name = Name.of_string "div";
+    symbol = "/";
+    signature = f [integer ; integer] rational;
+    value_encoding = lift_binary (fun v -> fun w ->
+      Value.of_num ((Value.to_num v) /. (Value.to_num w)));
+    (* solver_encoding = lift_binary S.Expr.div; *)
+    solver_encoding =
+      let uif = S.F.mk "div" [S.Sort.rational ; S.Sort.rational] S.Sort.rational in
+        fun xs -> S.F.apply uif xs;
+  }
+  let minus = {
+    name = Name.of_string "minus";
+    symbol = "-";
+    signature = f [integer ; integer] integer;
+    value_encoding = lift_binary (fun v -> fun w ->
+      Value.of_num ((Value.to_num v) -. (Value.to_num w)));
+    solver_encoding = lift_binary S.Expr.minus;
+  }
+  let arithmetic = [plus; mult; div; minus; 
+    rat_plus; rat_mult; rat_div; rat_minus; 
+    abs; max; int_to_rat]
 
   (* comparisons *)
   let eq = {
@@ -151,7 +215,7 @@ module Defaults = struct
   let leq = {
     name = Name.of_string "leq";
     symbol = "<=";
-    signature = f [rational ; rational] boolean;
+    signature = f [integer ; integer] boolean;
     value_encoding = lift_binary (fun v -> fun w ->
       Value.of_bool ((Value.to_num v) <= (Value.to_num w)));
     solver_encoding = lift_binary S.Expr.leq;
@@ -159,7 +223,7 @@ module Defaults = struct
   let geq = {
     name = Name.of_string "geq";
     symbol = ">=";
-    signature = f [rational ; rational] boolean;
+    signature = f [integer ; integer] boolean;
     value_encoding = lift_binary (fun v -> fun w ->
       Value.of_bool ((Value.to_num v) >= (Value.to_num w)));
     solver_encoding = lift_binary S.Expr.geq;
@@ -167,7 +231,7 @@ module Defaults = struct
   let lt = {
     name = Name.of_string "lt";
     symbol = "<";
-    signature = f [rational ; rational] boolean;
+    signature = f [integer ; integer] boolean;
     value_encoding = lift_binary (fun v -> fun w ->
       Value.of_bool ((Value.to_num v) < (Value.to_num w)));
     solver_encoding = lift_binary S.Expr.lt;
@@ -175,12 +239,46 @@ module Defaults = struct
   let gt = {
     name = Name.of_string "gt";
     symbol = ">";
+    signature = f [integer ; integer] boolean;
+    value_encoding = lift_binary (fun v -> fun w ->
+      Value.of_bool ((Value.to_num v) > (Value.to_num w)));
+    solver_encoding = lift_binary S.Expr.gt;
+  }
+  let rat_leq = {
+    name = Name.of_string "ratLeq";
+    symbol = "<=.";
+    signature = f [rational ; rational] boolean;
+    value_encoding = lift_binary (fun v -> fun w ->
+      Value.of_bool ((Value.to_num v) <= (Value.to_num w)));
+    solver_encoding = lift_binary S.Expr.leq;
+  }
+  let rat_geq = {
+    name = Name.of_string "ratGeq";
+    symbol = ">=.";
+    signature = f [rational ; rational] boolean;
+    value_encoding = lift_binary (fun v -> fun w ->
+      Value.of_bool ((Value.to_num v) >= (Value.to_num w)));
+    solver_encoding = lift_binary S.Expr.geq;
+  }
+  let rat_lt = {
+    name = Name.of_string "ratLt";
+    symbol = "<.";
+    signature = f [rational ; rational] boolean;
+    value_encoding = lift_binary (fun v -> fun w ->
+      Value.of_bool ((Value.to_num v) < (Value.to_num w)));
+    solver_encoding = lift_binary S.Expr.lt;
+  }
+  let rat_gt = {
+    name = Name.of_string "ratGt";
+    symbol = ">.";
     signature = f [rational ; rational] boolean;
     value_encoding = lift_binary (fun v -> fun w ->
       Value.of_bool ((Value.to_num v) > (Value.to_num w)));
     solver_encoding = lift_binary S.Expr.gt;
   }
-  let comparisons = [eq; neq; leq; geq; lt; gt]
+  let comparisons = [eq; neq; 
+    leq; geq; lt; gt;
+    rat_leq; rat_geq; rat_lt; rat_gt]
 
   (* logical ops *)
   let and_ = {
@@ -214,7 +312,7 @@ module Defaults = struct
   let exists = {
     name = Name.of_string "exists";
     symbol = "exists";
-    signature = f [rational; boolean] boolean;
+    signature = f [integer; boolean] boolean;
     value_encoding = lift_unary (fun _ -> raise (Encoding_error "cannot yet evaluate existential"));
     solver_encoding = fun xs -> match xs with
       | [n; e] -> S.Quantifier.exists n e;
@@ -223,7 +321,7 @@ module Defaults = struct
   let forall = {
     name = Name.of_string "forall";
     symbol = "forall";
-    signature = f [rational; rational; rational; boolean] boolean;
+    signature = f [integer; integer; integer; boolean] boolean;
     value_encoding = (fun _ -> raise (Encoding_error "cannot evaluate universal"));
     solver_encoding = fun xs -> match xs with
       | [n; l; u; e] -> S.Quantifier.bounded_forall n l u e;
@@ -262,14 +360,7 @@ module Defaults = struct
       let uif = S.F.mk "log" [S.Sort.rational] S.Sort.rational in
         fun xs -> S.F.apply uif xs;
   }
-  let isint = {
-    name = Name.of_string "isint";
-    symbol = "isint";
-    signature = f [rational] boolean;
-    value_encoding = lift_unary (fun v -> Value.of_bool true);
-    solver_encoding = lift_unary S.Expr.is_int;
-  }
-  let complicated = [log; isint]
+  let complicated = [log]
 
   (* all the defined functions *)
   let defined = unary @ arithmetic @ comparisons @ logical @ distributions @ complicated @ quantifiers

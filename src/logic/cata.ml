@@ -4,6 +4,7 @@ exception Evaluation_error of string
 let literal_to_value : AST.lit -> Value.t = function
   | AST.Rational q -> Value.of_rational q
   | AST.Boolean b -> Value.of_bool b
+  | AST.Integer i -> Value.of_int i
 
 let rec evaluate (model : Value.Model.t) : AST.expr -> Value.t = function
   | AST.Literal l -> literal_to_value l
@@ -36,6 +37,7 @@ exception Encoding_error of string
 let type_to_sort : Types.t -> S.Sort.t = function
   | Types.Base (Types.Rational) -> S.Sort.rational
   | Types.Base (Types.Boolean) -> S.Sort.boolean
+  | Types.Base (Types.Integer) -> S.Sort.integer
   | _ -> raise (Encoding_error "not a base type")
 
 let rec encode (c : Types.Environment.t) : AST.expr -> S.Expr.t = function
@@ -51,6 +53,7 @@ and encode_literal : AST.lit -> S.Expr.t = function
       | Rational.Q (n, d) -> S.Expr.rational n d
     end
   | AST.Boolean b -> S.Expr.bool b
+  | AST.Integer i -> S.Expr.int i
 and encode_identifier (c : Types.Environment.t) : AST.id -> S.Expr.t = function
   | AST.Var n -> begin match Types.Environment.get_type n c with
       | Some t -> S.Expr.variable (Name.to_string n) (type_to_sort t)

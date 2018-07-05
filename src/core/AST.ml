@@ -12,6 +12,7 @@ and id =
   | Var of Name.t
   | IndexedVar of Name.t * expr
 and lit =
+  | Integer of int
   | Rational of Rational.t
   | Boolean of bool
 
@@ -54,6 +55,7 @@ let rec format f : expr -> unit = function
         f' 
         (CCFormat.list ~sep:(CCFormat.return ",@ ") format) rest
 and format_lit f : lit -> unit = function
+  | Integer i -> CCFormat.int f i
   | Rational q -> Rational.format f q
   | Boolean b -> CCFormat.bool f b
 and format_id f : id -> unit = function
@@ -64,6 +66,7 @@ and format_id f : id -> unit = function
 (* print statements *)
 
 let rec lit_to_string : lit -> string = function
+  | Integer i -> string_of_int i
   | Rational q -> Rational.to_string q
   | Boolean b -> string_of_bool b
 and id_to_string : id -> string = function

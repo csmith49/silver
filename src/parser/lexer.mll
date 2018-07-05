@@ -13,7 +13,7 @@
 }
 
 (* regexes for the non-trivial bits *)
-let id = ['a' - 'z' 'A' - 'Z']+
+let id = ['a' - 'z' 'A' - 'Z' '-']+
 let white = [' ' '\t']+
 let newline = '\r' | '\n' | "\r\n"
 let int = '-'? ['0' - '9'] ['0' - '9']*
@@ -22,6 +22,14 @@ let int = '-'? ['0' - '9'] ['0' - '9']*
 rule read = parse
   | white {read lexbuf}
   | newline {next_line lexbuf; read lexbuf}
+  | "+." {RATPLUS}
+  | "*." {RATMULT}
+  | "/." {RATDIV}
+  | "-." {RATMINUS}
+  | "<=." {RATLEQ}
+  | ">=." {RATGEQ}
+  | "<." {RATLT}
+  | ">." {RATGT}
   | '+' {PLUS}
   | '*' {MULT}
   | '-' {MINUS}

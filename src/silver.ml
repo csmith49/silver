@@ -8,6 +8,7 @@ let _ = Global.get_args ();
 (* let's do some parsing *)
 let program = Parse.parse !Global.filename in
 let pre, ast, post, cost = program in
+let _ = printf "PARSED@." in 
 let env = Static.global_context program |> CCOpt.get_exn in
 let automata = Program.of_ast ast in
 

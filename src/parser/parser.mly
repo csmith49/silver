@@ -19,11 +19,13 @@
 
 /* arithmetic symbols */
 %token PLUS MULT DIV MINUS
+%token RATPLUS RATMULT RATDIV RATMINUS
 
 
 /* boolean symbols */
 /* comparison operators */
 %token EQ LT GT LEQ GEQ NEQ
+%token RATLT RATGT RATLEQ RATGEQ
 
 /* assignments and some control flow */
 %token SEMICOLON PERIOD
@@ -91,7 +93,7 @@ base:
   | e = delimited(LEFT_PAREN, expression, RIGHT_PAREN) { e }
 
 literal:
-  | q = INT { AST.Literal (AST.Rational (Rational.Q (q, 1))) }
+  | i = INT { AST.Literal (AST.Integer i) }
   | b = BOOL { AST.Literal (AST.Boolean b) }
 
 identifier:
@@ -102,6 +104,7 @@ identifier:
 %inline unary_op:
   | NOT { Name.of_string "not" }
   | MINUS { Name.of_string "negative" }
+  | RATMINUS {Name.of_string "ratNegative"}
 %inline binary_op:
   | PLUS { Name.of_string "plus" }
   | MULT { Name.of_string "mult" }
@@ -116,6 +119,14 @@ identifier:
   | AND { Name.of_string "and" }
   | OR { Name.of_string "or" }
   | IMPLIES { Name.of_string "implies" }
+  | RATPLUS { Name.of_string "ratPlus" }
+  | RATMULT { Name.of_string "ratMult" }
+  | RATDIV { Name.of_string "ratDiv" }
+  | RATMINUS { Name.of_string "ratMinus" }
+  | RATLEQ { Name.of_string "ratLeq" }
+  | RATGEQ { Name.of_string "ratGeq" }
+  | RATLT { Name.of_string "ratLt" }
+  | RATGT { Name.of_string "ratGt" }
 
 /* a simplifying macro for above */
 %public plist(X):
