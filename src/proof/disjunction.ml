@@ -28,7 +28,7 @@ module Edge = struct
           if mc = cc then None else
             let mx = AST.Identifier (AST.Var (Name.set_counter x mc)) in
             let cx = AST.Identifier (AST.Var (Name.set_counter x cc)) in
-              Some AST.Infix.(mx =. cx)
+              Some AST.Infix.(mx =@ cx)
         )
       |> CCList.map (Constraint.of_expr maximal)
 

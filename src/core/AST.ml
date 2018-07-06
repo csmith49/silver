@@ -122,41 +122,58 @@ let rec to_string : t -> string = function
       "Block(" ^ (CCString.concat ", " bs') ^ ")"
 
 module Infix = struct
-  let ( =. ) (l : expr) (r : expr) : expr =
+  let ( =@ ) (l : expr) (r : expr) : expr =
     FunCall (Name.of_string "eq", [l ; r])
 
-  let ( !. ) (e : expr) : expr =
+  let ( !@ ) (e : expr) : expr =
     FunCall (Name.of_string "not", [e])
   
-  let ( &. ) (l : expr) (r : expr) : expr =
+  let ( &@ ) (l : expr) (r : expr) : expr =
     FunCall (Name.of_string "and", [l ; r])
 
-  let ( |. ) (l : expr) (r : expr) : expr =
+  let ( |@ ) (l : expr) (r : expr) : expr =
     FunCall (Name.of_string "or", [l ; r])
 
-  let ( +. ) (l : expr) (r : expr) : expr =
+  let ( +@ ) (l : expr) (r : expr) : expr =
     FunCall (Name.of_string "plus", [l ; r])
 
-  let ( =>. ) (l : expr) (r : expr) : expr =
+  let ( +.@ ) (l : expr) (r : expr) : expr =
+    FunCall (Name.of_string "ratPlus", [l ; r])
+
+  let ( =>@ ) (l : expr) (r : expr) : expr =
     FunCall (Name.of_string "implies", [l ; r])
 
-  let ( <= ) (l : expr) (r : expr) : expr =
+  let ( <=@ ) (l : expr) (r : expr) : expr =
     FunCall (Name.of_string "leq", [l ; r])
 
-  let ( >= ) (l : expr) (r : expr) : expr =
+  let ( <=.@ ) (l : expr) (r : expr) : expr =
+    FunCall (Name.of_string "ratLeq", [l ; r])
+
+  let ( >=@ ) (l : expr) (r : expr) : expr =
     FunCall (Name.of_string "geq", [l ; r])
 
-  let ( > ) (l : expr) (r : expr) : expr =
+  let ( >=.@ ) (l : expr) (r : expr) : expr =
+    FunCall (Name.of_string "ratGeq", [l ; r])
+
+  let ( >@ ) (l : expr) (r : expr) : expr =
     FunCall (Name.of_string "gt", [l ; r])
 
+  let ( >.@ ) (l : expr) (r : expr) : expr =
+    FunCall (Name.of_string "ratGt", [l ; r])
+    
+
+  (*  *)
   let var : string -> expr = fun s ->
     Identifier (Var (Name.of_string s))
 
   let var_i : (string * int) -> expr = fun (s, i) ->
     Identifier (Var (Name.set_counter (Name.of_string s) i))
 
-  let int : int -> expr = fun i ->
+  let rat : int -> expr = fun i ->
     Literal (Rational (Rational.Q (i, 1)))
+
+  let int : int -> expr = fun i ->
+    Literal (Integer i)
 
   let bool : bool -> expr = fun b ->
     Literal (Boolean b)

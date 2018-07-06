@@ -166,7 +166,7 @@ module Make = functor (C : CONTEXT) -> struct
       (* (Expr.and_ *)
         (* (Expr.and_ (Expr.is_int lower) (Expr.is_int upper))   *)
         (forall x (Expr.implies 
-          (Expr.and_ (Expr.geq x lower) (Expr.leq x upper)) body))
+          (Expr.and_ (Expr.geq x lower) (Expr.lt x upper)) body))
       (* ) *)
 
     let exists (x : Expr.t) (body : Expr.t) : Expr.t =

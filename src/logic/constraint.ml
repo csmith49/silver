@@ -44,12 +44,12 @@ let of_expr (m : Types.Environment.t) : AST.expr -> t = fun e -> {
 (* for combining constraints *)
 module Mk = struct
   let and_ (left : t) (right : t) : t = {
-    expression = AST.Infix.(left.expression &. right.expression);
+    expression = AST.Infix.(left.expression &@ right.expression);
     encoding = S.Expr.and_ left.encoding right.encoding;
   }
 
   let or_ (left : t) (right : t) : t = {
-    expression = AST.Infix.(left.expression |. right.expression);
+    expression = AST.Infix.(left.expression |@ right.expression);
     encoding = S.Expr.or_ left.encoding right.encoding;
   }
 

@@ -29,7 +29,7 @@ let rec infer (env : E.t) (e : A.expr) : Types.t option = match e with
       (* although we have to treat indexed variables more like functions *)
       | A.IndexedVar (n, i) ->
         match E.get_type n env with
-          | Some (Types.Indexed (d, c)) -> if check env i c then Some d else None
+          | Some (Types.Indexed (d, c)) -> if check env i d then Some c else None
           | _ -> None
     end
   | A.FunCall (f, args) -> 
@@ -73,7 +73,7 @@ let rec type_constraints (e : A.expr) : Types.t * C.t = match e with
         let codom = Types.Variable (n <+ "codom") in
         let dom = Types.Variable (n <+ "dom") in
         let (t, c) = type_constraints i in
-          (dom, (codom =:= t) <&> (a =:= Types.Indexed (dom, codom)))
+          (codom, (dom =:= t) <&> (a =:= Types.Indexed (dom, codom)))
       end
     | A.FunCall (f, args) -> 
       let op = match Operation.find_op f with

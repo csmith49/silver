@@ -1,18 +1,14 @@
-{{ n >= 1 }}
+{{ (n >= 1)  }}
 
-best = 1;
-max = rat(-1);
+best = 0;
 i = 0;
-flag = true;
 while (i < n) {
-    i = i + 1;
     a[i] ~ lap(e /. rat(2)) +. q[i];
-    if ((a[i] > max) | flag) then {
+    if (a[i] >. a[best]) then {
         best = i;
-        max = a[i];
     }
-    flag = false;
+    i = i + 1;
 }
 
-{{ for j in [1, i] . q[best] >. q[j] -. (rat(4) /. e) *. log(rat(n) /. beta) }}
+{{ for j in [0, n] . q[best] >. q[j] -. (rat(4) /. e) *. log(rat(n) /. beta) }}
 {{ beta }}

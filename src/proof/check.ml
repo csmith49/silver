@@ -16,7 +16,6 @@ let check_trace
     let encoding = Trace.encode env pre post cost trace in
       Constraint.check_wrt_theory ~verbose:verbose env theory encoding
 
-
 module Answer = struct
   (* an answer here is either a set of proofs, incorrect, or unknown *)
   type t =

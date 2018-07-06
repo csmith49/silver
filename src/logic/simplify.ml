@@ -21,8 +21,14 @@ module Defaults = struct
 
   let distribute_not_implication = mk "!(x => y)" "x & !y"
 
-  let inverse_of_inverse = mk "1/(x/y)" "y/x"
+  let inverse_of_inverse = mk "rat(1) /. (x /. y)" "y /. x"
   let rat_inverse_of_inverse = mk "rat(1) /. (x /. y)" "(y /. x)"
+
+  let additive_identity_one = mk "rat(0) +. x" "x"
+  let additive_identity_two = mk "x +. rat(0)" "x"
+
+  let multiplicative_identity_one = mk "rat(1) *. x" "x"
+  let multiplicative_identity_two = mk "x *. rat(1)" "x"
 
   let drop_existential = mk "exists(x, y)" "y"
 
@@ -50,6 +56,10 @@ module Defaults = struct
     conjunctive_identity_two;
     disjunctive_identity_one;
     disjunctive_identity_two;
+    additive_identity_one;
+    additive_identity_two;
+    multiplicative_identity_one;
+    multiplicative_identity_two;
   ]
 end
 

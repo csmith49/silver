@@ -44,16 +44,16 @@ let mk (pat : string) (sem : string) (cost : string) = {
 
 (* and the defaults can go here *)
 module Laplace = struct
-  let var_1 = mk "lap(e)" "abs(x) < (1 / e) * log(1 / f)" "f"
-  let var_2 = mk "lap(e) + m" "abs(x - m) < (1 / e) * log(1 / f)" "f"
-  let var_3 = mk "m + lap(e)" "abs(x - m) < (1 / e) * log(1 / f)" "f"
+  let var_1 = mk "lap(e)" "abs(x) <. (rat(1) /. e) *. log(rat(1) /. f)" "f"
+  let var_2 = mk "lap(e) +. m" "abs(x -. m) <. (rat(1) /. e) *. log(rat(1) /. f)" "f"
+  let var_3 = mk "m +. lap(e)" "abs(x -. m) <. (rat(1) /. e) *. log(rat(1) /. f)" "f"
 
   let all = [var_1; var_2; var_3]
 end
 
 module Bernoulli = struct
   let var_1 = mk "bern(p)" "x == true" "p"
-  let var_2 = mk "bern(p)" "x == false" "1 - p"
+  let var_2 = mk "bern(p)" "x == false" "rat(1) -. p"
 
   let all = [var_1; var_2]
 end

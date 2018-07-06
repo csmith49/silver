@@ -9,7 +9,7 @@ module Induction = struct
   let bound (x : AST.id) (l : AST.expr) (r : AST.expr) : AST.expr =
     let x' = AST.Identifier x in
     let int_restriction = AST.FunCall(Name.of_string "isint", [x']) in
-      AST.Infix.(int_restriction &. (x' >= l) &. (x' <= r))
+      AST.Infix.(int_restriction &@ (x' >=@ l) &@ (x' <=@ r))
 
   (* convert pieces of a universally-qauntified formula to a weak form *)
   let weak_induction_form (var : AST.id) (x : AST.id) (l : AST.expr) (r : AST.expr) (e : AST.expr) : AST.expr =
@@ -17,14 +17,14 @@ module Induction = struct
     let sub = Substitution.singleton x i in
     let e' = Substitution.apply e sub in
     let bound = bound var l r in
-      AST.Infix.(bound =>. e')
+      AST.Infix.(bound =>@ e')
 
   (* replace universal quantifier with freshest inductive case *)
   let simplify_succ_interpolant : t -> t = function
     | AST.FunCall (f, [AST.Identifier x; l; u; e]) when Name.eq f (Name.of_string "forall") ->
       let sub = Substitution.singleton x u in 
       let bound = bound x l u in
-      let e' = Substitution.apply AST.Infix.(bound =>. e) sub in
+      let e' = Substitution.apply AST.Infix.(bound =>@ e) sub in
         e'
     | _ as i -> i
 
@@ -48,13 +48,13 @@ module Induction = struct
         |> CCList.map (fun (x, y) ->
             let x' = AST.Identifier x in
             let y' = AST.Identifier y in
-            AST.Infix.( !.(x' =. y') )
+            AST.Infix.( !@ (x' =@ y') )
           ) in
       (* generate the weak induction forms *)
       let formulas = fresh_variables
         |> CCList.map (fun fv -> weak_induction_form fv x l u e) in
       (* and conjoin *)
-        CCList.fold_left AST.Infix.(&.) (AST.Infix.bool true) (formulas @ disjoint)
+        CCList.fold_left AST.Infix.(&@) (AST.Infix.bool true) (formulas @ disjoint)
     | _ as i -> i
 end
 
@@ -63,7 +63,7 @@ end
 let impl_validity (ante : Constraint.conjunction) (succ : Constraint.conjunction) : bool =
   (* negate the succedent *)
   let negate s = {
-    Constraint.expression = AST.Infix.(!.) s.Constraint.expression;
+    Constraint.expression = AST.Infix.(!@) s.Constraint.expression;
     encoding = S.Expr.not s.Constraint.encoding;
   } in
   (* construct the formula A & !S *)
@@ -128,6 +128,13 @@ let default = Strategy.S (fun env -> fun vars -> [])
 
 let overly_specific = Strategy.S (fun env -> fun vars ->
   let answer = Parse.parse_expr 
-    "forall(j, 1, i, (abs(a[j] - q[j]) < (2 / e) * log(n / beta)) & (w == i * (beta / n)) & (a[best] >= a[j]) )" 
+    "(i <= n) & 
+    (i >= 0) & 
+    (best <= i) & 
+    (best >= 0) & 
+    forall(j, 0, i, 
+      (abs(a[j] -. q[j]) <. (rat(2) /. e) *. log(rat(n) /. beta)) & 
+      (a[best] >=. a[j])
+    )"
   in [answer]
   )

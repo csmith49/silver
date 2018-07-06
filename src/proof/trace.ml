@@ -133,8 +133,6 @@ let encoding_to_string : encoding -> string = fun e -> e
   |> CCList.map AST.expr_to_string
   |> CCString.concat " & "
 
-open AST.Infix
-
 (* axiomatizing converts some Draw steps to Concrete steps, incrementing strategy as we go *)
 let axiomatize_step
   (strategy : Strategy.t) 
@@ -177,24 +175,35 @@ let step_to_constraint (i : int) : step -> Constraint.t = fun s ->
   match s.step with (src, lbl, dest) -> let enc = match lbl with
     (* x = e & w = wp & h = hp *)
     | Label.Assign (x, e) ->
-      ((AST.Identifier x) =. e) &. 
-        ((Vars.w i) =. (Vars.w (i - 1))) &. 
-        ((Vars.h i) =. (Vars.h (i - 1))) |> Simplify.simplify
+      let x = AST.Identifier x in
+      AST.Infix.(
+        (x =@ e) &@
+        ((Vars.w i) =@ (Vars.w (i - 1))) &@
+        ((Vars.h i) =@ (Vars.h (i - 1)))
+      ) |> Simplify.simplify
     (* (w = wp) & (h = (hp | !b)) *)
     | Label.Assume b ->
-      ((Vars.w i) =. (Vars.w (i - 1))) &.
+      AST.Infix.(
+        ((Vars.w i) =@ (Vars.w (i - 1))) &@
         (
-          ((Vars.h i) =. ((Vars.h (i - 1)) |. (!. b)))
-        ) |> Simplify.simplify
+          ((Vars.h i) =@ ((Vars.h (i - 1)) |@ (!@ b) ))
+        )
+      ) |> Simplify.simplify
     (* true & w = wp & h = hp *)
     | Label.Draw _ ->
-      ((Vars.w i) =. (Vars.w (i - 1))) &. 
-        ((Vars.h i) =. (Vars.h (i - 1))) |> Simplify.simplify
+      AST.Infix.(
+        ((Vars.w i) =@ (Vars.w (i - 1))) &@
+        ((Vars.h i) =@ (Vars.h (i - 1)))
+      ) |> Simplify.simplify
     (* semantics & w = wp + cost & h = hp *)
-    | Label.Concrete c ->      
-      c.Label.semantics &.
-        ((Vars.w i) =. ((Vars.w (i - 1)) +. c.Label.cost)) &.
-        ((Vars.h i) =. (Vars.h (i - 1))) |> Simplify.simplify
+    | Label.Concrete c ->
+      let sem = c.Label.semantics in
+      let cost = c.Label.cost in
+      AST.Infix.(
+        sem &@
+        ((Vars.w i) =@ ((Vars.w (i - 1)) +.@ cost)) &@
+        ((Vars.h i) =@ (Vars.h (i - 1)))
+      ) |> Simplify.simplify
   in Constraint.of_expr env enc
 
 (* a simpler encoding which eschews halt variables - only works if the trace is feasible *)
@@ -203,17 +212,24 @@ let simple_step_to_constraint (i : int) : step -> Constraint.t = fun s ->
   match s.step with (src, lbl, dest) -> let enc = match lbl with
     (* x = e & w = wp *)
     | Label.Assign (x, e) ->
-      ((AST.Identifier x) =. e) &.
-      ((Vars.w i) =. (Vars.w (i - 1))) |> Simplify.simplify
+      let x = AST.Identifier x in
+      AST.Infix.(
+        (x =@ e) &@
+        ((Vars.w i) =@ (Vars.w (i - 1)))
+      ) |> Simplify.simplify
     (* w = wp & b *)
     | Label.Assume b ->
-      ((Vars.w i) =. (Vars.w (i - 1))) &. b |> Simplify.simplify
+      AST.Infix.(
+        ((Vars.w i) =@ (Vars.w (i - 1))) &@
+        b
+      ) |> Simplify.simplify
     (* w = wp *)
     | Label.Draw (x, e) ->
-      ((Vars.w i) =. (Vars.w (i - 1))) |> Simplify.simplify
+      AST.Infix.((Vars.w i) =@ (Vars.w (i - 1))) |> Simplify.simplify
     (* semantics & w = wp + cost *)
     | Label.Concrete c ->
-      ((Vars.w i) =. (Vars.w (i - 1)) +. c.Label.cost) &. c.Label.semantics |> Simplify.simplify
+      AST.Infix.(
+      ((Vars.w i) =@ (Vars.w (i - 1)) +@ c.Label.cost) &@ c.Label.semantics) |> Simplify.simplify
     in Constraint.of_expr env enc
 
 (* to convert a trace to a constraint, we just chain together the step_to_constraints and inc. i *)
@@ -259,13 +275,13 @@ module Encode = struct
   (* pre & w = 0 & h = false *)
   let pre (env : Types.Environment.t) : AST.annotation -> Constraint.t = fun annot ->
     let env = env |> Vars.extend 0 in
-    let expr = AST.Infix.(annot &. ((var "w") =. (int 0)) &. ((var "h") =. (bool false))) in
+    let expr = AST.Infix.(annot &@ ((var "w") =@ (rat 0)) &@ ((var "h") =@ (bool false))) in
       Constraint.of_expr env expr
   
   (* pre & w = 0 *)
   let simple_pre (env : Types.Environment.t) : AST.annotation -> Constraint.t = fun annot ->
     let env = env |> Vars.extend 0 in
-    let expr = AST.Infix.(annot &. ((var "w") =. (int 0))) in
+    let expr = AST.Infix.(annot &@ ((var "w") =@ (rat 0))) in
       Constraint.of_expr env expr
 
   (* !(w <= cost & (!h => post)) *)
@@ -276,9 +292,9 @@ module Encode = struct
         |> Types.Environment.update (Name.of_string "betainternal") (Types.Base (Types.Rational)) in
       let c' = SSA.update_expr c env in
       let annot' = SSA.update_expr annot env in
-      let expr = AST.Infix.(((var "betainternal") =. c') &. ((var "betainternal") >= (int 0)) &.
-        (!. (((var_i ("w", index) <= (var "betainternal"))) &.
-        ((!. (var_i ("h", index))) =>. annot')))) in
+      let expr = AST.Infix.(((var "betainternal") =@ c') &@ ((var "betainternal") >=@ (rat 0)) &@
+        (!@ (((var_i ("w", index) <=@ (var "betainternal"))) &@
+        ((!@ (var_i ("h", index))) =>@ annot')))) in
       expr
         |> Simplify.simplify
         |> Constraint.of_expr env
@@ -291,8 +307,8 @@ module Encode = struct
         |> Types.Environment.update (Name.of_string "betainternal") (Types.Base (Types.Rational)) in
       let c' = SSA.update_expr c env in
       let annot' = SSA.update_expr annot env in
-      let expr = AST.Infix.(((var "betainternal") =. c') &. ((var "betainternal") >= (int 0)) &. 
-        (!. (((var_i ("w", index) <= (var "betainternal"))) &. annot'))) in
+      let expr = AST.Infix.(((var "betainternal") =@ c') &@ ((var "betainternal") >=@ (rat 0)) &@
+        (!@ (((var_i ("w", index) <=@ (var "betainternal"))) &@ annot'))) in
       expr
         |> Simplify.simplify
         |> Constraint.of_expr env
@@ -301,7 +317,7 @@ module Encode = struct
   let non_blocking (index : int) (env : Types.Environment.t) : Constraint.t =
     let env = env
       |> Vars.extend index in 
-    let expr = AST.Infix.(!. (var_i ("h", index))) in
+    let expr = AST.Infix.(!@ (var_i ("h", index))) in
     expr |> Constraint.of_expr env
 end
 
@@ -333,5 +349,5 @@ let rec vars_in_scope : Strategy.t = Strategy.S (
 
 (* more direct strategy *)
 let rec beta_strat : Strategy.t = Strategy.S (
-  fun _ -> ([Parse.parse_expr "beta / n"], beta_strat)
+  fun _ -> ([Parse.parse_expr "beta /. rat(n)"], beta_strat)
 )
