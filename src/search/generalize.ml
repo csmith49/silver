@@ -165,10 +165,10 @@ let can_generalize
     let body_right = body.Disjunction.right in
     let post_edge = postfix.Disjunction.right in
     (* encode the constraints *)
-    let pre_constraint = Check.pre_to_constraint 
+    let pre_constraint = Trace.Encode.pre 
       pre_edge.Disjunction.Edge.variables
       pre in
-    let post_constraint = Check.post_to_constraint
+    let post_constraint = Trace.Encode.post
       post_edge.Disjunction.Edge.index
       post_edge.Disjunction.Edge.variables
       post cost in

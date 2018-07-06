@@ -223,6 +223,12 @@ let rec to_constraint ?(index=1) : t -> encoding = function
     let c = step_to_constraint index step in
     c :: (to_constraint ~index:(index + 1) rest)
 
+let rec to_simple_constraint ?(index=1) : t -> encoding = function
+  | [] -> []
+  | step :: rest ->
+    let c = simple_step_to_constraint index step in
+    c :: (to_simple_constraint ~index:(index + 1) rest)
+
 (* given a trace, strip the variable info and convert back to a path *)
 let reset_step = fun s -> match s with (src, lbl, dest) -> 
   let reset_id i = SSA.update_id i Types.Environment.empty in
@@ -247,6 +253,68 @@ let to_path : t -> path = fun tr -> tr |> CCList.map (fun s -> s.step |> reset_s
 let to_word : t -> Label.t list = fun tr -> tr |> to_path |> Graph.Path.to_word
 
 let format f t = CCFormat.fprintf f "%a" (Graph.Path.format State.format Label.format) (to_path t)
+
+(* encoding a trace as a constraint - complex encoding if needed, otherwise simple encoding *)
+module Encode = struct
+  (* pre & w = 0 & h = false *)
+  let pre (env : Types.Environment.t) : AST.annotation -> Constraint.t = fun annot ->
+    let env = env |> Vars.extend 0 in
+    let expr = AST.Infix.(annot &. ((var "w") =. (int 0)) &. ((var "h") =. (bool false))) in
+      Constraint.of_expr env expr
+  
+  (* pre & w = 0 *)
+  let simple_pre (env : Types.Environment.t) : AST.annotation -> Constraint.t = fun annot ->
+    let env = env |> Vars.extend 0 in
+    let expr = AST.Infix.(annot &. ((var "w") =. (int 0))) in
+      Constraint.of_expr env expr
+
+  (* !(w <= cost & (!h => post)) *)
+  let post 
+    (index : int) (env : Types.Environment.t) : AST.annotation -> AST.cost -> Constraint.t = fun annot -> fun c ->
+      let env = env
+        |> Vars.extend index
+        |> Types.Environment.update (Name.of_string "betainternal") (Types.Base (Types.Rational)) in
+      let c' = SSA.update_expr c env in
+      let annot' = SSA.update_expr annot env in
+      let expr = AST.Infix.(((var "betainternal") =. c') &. ((var "betainternal") >= (int 0)) &.
+        (!. (((var_i ("w", index) <= (var "betainternal"))) &.
+        ((!. (var_i ("h", index))) =>. annot')))) in
+      expr
+        |> Simplify.simplify
+        |> Constraint.of_expr env
+
+  (* !(w <= cost & post) *)
+  let simple_post
+    (index : int) (env : Types.Environment.t) : AST.annotation -> AST.cost -> Constraint.t = fun annot -> fun c ->
+      let env = env
+        |> Vars.extend index
+        |> Types.Environment.update (Name.of_string "betainternal") (Types.Base (Types.Rational)) in
+      let c' = SSA.update_expr c env in
+      let annot' = SSA.update_expr annot env in
+      let expr = AST.Infix.(((var "betainternal") =. c') &. ((var "betainternal") >= (int 0)) &. 
+        (!. (((var_i ("w", index) <= (var "betainternal"))) &. annot'))) in
+      expr
+        |> Simplify.simplify
+        |> Constraint.of_expr env
+  
+  (* !h *)
+  let non_blocking (index : int) (env : Types.Environment.t) : Constraint.t =
+    let env = env
+      |> Vars.extend index in 
+    let expr = AST.Infix.(!. (var_i ("h", index))) in
+    expr |> Constraint.of_expr env
+end
+
+let encode (env : Types.Environment.t)
+    (pre : AST.annotation)
+    (post : AST.annotation) (cost : AST.cost) : t -> Constraint.conjunction = fun trace ->
+      let pre = Encode.pre (trace |> CCList.hd |> fun t -> t.variables) pre in
+      let post = Encode.post
+        (CCList.length trace)
+        (trace |> CCList.last_opt |> CCOpt.get_exn |> fun s -> s.variables)
+        post cost in
+      let encoding = to_constraint trace in
+        pre :: (encoding @ [post])
 
 (* a default strategy *)
 let rec vars_in_scope : Strategy.t = Strategy.S (

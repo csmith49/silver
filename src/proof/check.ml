@@ -6,25 +6,6 @@ open AST.Infix
 type path = Trace.path
 type trace = Trace.t
 
-let pre_to_constraint (env : Types.Environment.t) : AST.annotation -> Constraint.t = fun annot ->
-  let env = env |> Trace.Vars.extend 0 in
-  let expr = annot &. ((var "w") =. (int 0)) &. ((var "h") =. (bool false)) in
-    Constraint.of_expr env expr
-
-let post_to_constraint 
-  (i : int) (env : Types.Environment.t) : AST.annotation -> AST.cost -> Constraint.t = fun annot -> fun c ->
-    let env = env
-      |> Trace.Vars.extend i 
-      |> Types.Environment.update (Name.of_string "betainternal") (Types.Base Types.Rational) in
-    let c' = Trace.SSA.update_expr c env in
-    let annot' = Trace.SSA.update_expr annot env in
-    let expr = ((var "betainternal") =. c') &. ((var "betainternal") >= (int 0)) &.
-      (!. (((var_i ("w", i) <= (var "betainternal"))) &.
-      ((!. (var_i ("h", i))) =>. annot'))) in
-    expr
-      |> Simplify.simplify
-      |> Constraint.of_expr env
-
 let check_trace
   ?(verbose=false)
   ?(theory=Theory.Defaults.all)
@@ -32,13 +13,7 @@ let check_trace
   (pre : AST.annotation) 
   (trace : trace) 
   (post : AST.annotation) (cost : AST.cost) : Constraint.Answer.t =
-    let pre = pre_to_constraint (trace |> CCList.hd |> fun t -> t.Trace.variables) pre in
-    let post = post_to_constraint 
-      (CCList.length trace) 
-      (trace |> CCList.last_opt |> CCOpt.get_exn |> fun s -> s.Trace.variables) 
-      post cost in
-    let conjunction = Trace.to_constraint trace in
-    let encoding = pre :: (conjunction @ [post]) in
+    let encoding = Trace.encode env pre post cost trace in
       Constraint.check_wrt_theory ~verbose:verbose env theory encoding
 
 

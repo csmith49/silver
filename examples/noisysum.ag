@@ -1,11 +1,11 @@
 {{ true }}
 
-sum = 0;
+sum = rat(0);
 i = 1;
 
 while (i <= n) {
-    a[i] ~ lap(e) + q[i];
-    sum = sum + a[i];
+    a[i] ~ lap(e) +. q[i];
+    sum = sum +. a[i];
     i = i + 1;
 }
 

@@ -114,12 +114,12 @@ let can_merge
     let left = prob.left in
     let right = prob.right in
     (* encode pre and post conditions *)
-    let pre = Check.pre_to_constraint Disjunction.(prefix.left.Edge.variables) pre in
-    let post_left = Check.post_to_constraint
+    let pre = Trace.Encode.pre Disjunction.(prefix.left.Edge.variables) pre in
+    let post_left = Trace.Encode.post
       Disjunction.(left.right.Edge.index)
       Disjunction.(left.right.Edge.variables)
       post cost in
-    let post_right = Check.post_to_constraint
+    let post_right = Trace.Encode.post
       Disjunction.(right.right.Edge.index)
       Disjunction.(right.right.Edge.variables)
       post cost in

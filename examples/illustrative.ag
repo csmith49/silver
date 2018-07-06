@@ -1,10 +1,10 @@
-{{ p > 0 }}
+{{ p >. rat(0) }}
 
-x ~ bern(1/2);
+x ~ bern(rat(1) /. rat(2));
 if (x) then {
     y ~ bern(p);
 } else {
-    y ~ bern(p/2);
+    y ~ bern(p /. rat(2));
 }
 
 {{ y }}
