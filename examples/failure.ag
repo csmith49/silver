@@ -1,0 +1,11 @@
+{{ true }}
+
+x ~ bern(rat(1));
+if (x) then {
+    y = false;
+} else {
+    y = true;
+}
+
+{{ y }}
+{{ rat(0) }}
