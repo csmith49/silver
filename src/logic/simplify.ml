@@ -50,7 +50,7 @@ module Defaults = struct
     distribute_not_and;
     distribute_not_or;
     distribute_not_implication;
-    universal_to_existential;
+    (* universal_to_existential; *)
     drop_existential;
     conjunctive_identity_one;
     conjunctive_identity_two;

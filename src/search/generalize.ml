@@ -134,6 +134,26 @@ let to_proof
       automata = automata;
     }
 
+let check_interpolant
+  ?(verbose=false)
+  ?(theory=Theory.Defaults.all)
+  (interpolant : Interpolant.t)
+  (pre : AST.annotation) (prob : problem) (post : AST.annotation) (cost : AST.cost) : bool =
+    (* get a typing environment *)
+    let env = Disjunction.Edge.environment prob.prefix.Disjunction.left in
+    (* pre & prefix => interpolant *)
+    let enc1 = Disjunction.encode pre prob.prefix interpolant in
+    (* interp & body => interp *)
+    let enc2 = Disjunction.encode interpolant prob.body interpolant in
+    (* interp & postfix => post *)
+    let enc3 = Disjunction.encode_with_cost interpolant prob.postfix post cost in
+    (* now check, in sequence *)
+    if Constraint.check_wrt_theory ~verbose:verbose env theory [enc1] |> Constraint.Answer.is_unsat then
+      if Constraint.check_wrt_theory ~verbose:verbose env theory [enc2] |> Constraint.Answer.is_unsat then
+        Constraint.check_wrt_theory ~verbose:verbose env theory [enc3] |> Constraint.Answer.is_unsat
+      else false
+    else false
+    
 (* check to see if a generalization is valid *)
 let can_generalize
   ?(verbose=false)
@@ -159,45 +179,8 @@ let can_generalize
     let variables = Interpolant.Variable.intersect_list [pre_vars ; body_vars ; post_vars] in
     (* pull interpolants *)
     let interpolants = Interpolant.Strategy.apply strategy env variables in
-    (* get the edges more easily *)
-    let pre_edge = prefix.Disjunction.left in
-    let body_left = body.Disjunction.left in
-    let body_right = body.Disjunction.right in
-    let post_edge = postfix.Disjunction.right in
-    (* encode the constraints *)
-    let pre_constraint = Trace.Encode.pre 
-      pre_edge.Disjunction.Edge.variables
-      pre in
-    let post_constraint = Trace.Encode.post
-      post_edge.Disjunction.Edge.index
-      post_edge.Disjunction.Edge.variables
-      post cost in
-    (* and the disjunctions *)
-    let prefix_constraint = Disjunction.encode prefix in
-    let body_constraint = Disjunction.encode body in
-    let postfix_constraint = Disjunction.encode postfix in
-    (* encoding interpolants using body left and body right *)
-    let succ_one i = Disjunction.Edge.update_expr i body_left
-      (* |> Interpolant.Induction.simplify_succ_interpolant *)
-      |> Simplify.simplify
-      |> Constraint.of_expr body_left.Disjunction.Edge.variables in
-    let ante_one i = Disjunction.Edge.update_expr i body_left
-      (* |> Interpolant.Induction.simplify_ante_interpolant strength *)
-      |> Simplify.simplify
-      |> Constraint.of_expr body_left.Disjunction.Edge.variables in
-    let succ_two i = Disjunction.Edge.update_expr i body_right
-      (* |> Interpolant.Induction.simplify_succ_interpolant *)
-      |> Simplify.simplify
-      |> Constraint.of_expr body_right.Disjunction.Edge.variables in
-    let ante_two i = Disjunction.Edge.update_expr i body_right
-      (* |> Interpolant.Induction.simplify_ante_interpolant strength *)
-      |> Simplify.simplify
-      |> Constraint.of_expr body_right.Disjunction.Edge.variables in
-    (* fidn the first interpolant where the appropriate conditions are met *)
-    CCList.find_opt (fun i ->
-        Interpolant.([pre_constraint ; prefix_constraint] => [succ_one i]) &&
-        Interpolant.([ante_one i ; body_constraint] => [succ_two i]) &&
-        Interpolant.([ante_two i ; postfix_constraint] => [post_constraint])) 
+      CCList.find_opt (fun i -> 
+        check_interpolant ~verbose:verbose ~theory:theory i pre prob post cost)
       interpolants
   
 (* generalize a single proof *)

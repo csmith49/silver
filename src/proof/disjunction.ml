@@ -12,6 +12,9 @@ module Edge = struct
     variables : Types.Environment.t;
   }
 
+  let environment : t -> Types.Environment.t = fun edge ->
+    Trace.Vars.extend edge.index edge.variables
+
   (* given a bunch of environemnts, we want to find out how much each variable has changed *)
   let rec maximal_environment : Types.Environment.t list -> Types.Environment.t = function
     | [] -> raise (Invalid_argument "Can't compute maximal environment from an empty list")
@@ -101,22 +104,72 @@ let of_graph (left : Edge.t)
       source dest proof.Abstraction.automata.DFA.delta in
     of_list left paths
 
+(* try all simultaneous axiomatizations *)
 let axiomatize (strategy : Trace.Strategy.t) (axioms : Probability.axiom list) : t -> t list = fun dis ->
   dis.paths
     |> CCList.map (Trace.axiomatize strategy axioms)
     |> CCList.cartesian_product
     |> CCList.map (fun concrete -> { dis with paths = concrete })
 
-let encode : t -> Constraint.t = fun dis -> 
-  let encodings = dis.paths
-    |> CCList.map (Trace.to_constraint ~index:dis.left.Edge.index) in
+(* utility to collapse pre, dis, post into a single constraint *)
+let collapse (pre : Constraint.t) (dis : Trace.encoding list) (post : Constraint.t) : Constraint.t =
+  let encodings = dis
+    |> CCList.map (CCList.fold_left Constraint.Mk.and_ Constraint.Mk.true_) in
+  let disjunction = CCList.fold_left Constraint.Mk.or_ Constraint.Mk.false_ encodings in
+    Constraint.Mk.(and_ (and_ pre disjunction) post)
+
+(* attempt a simple encoding, otherwise go as complicated as necessary *)
+let encode (pre : AST.annotation) (dis : t) (post : AST.annotation) : Constraint.t =
+  let index = dis.left.Edge.index in
+  let left_env = Edge.environment dis.left in
+  let right_env = Edge.environment dis.right in
   let frames = dis.paths
     |> CCList.map (fun t -> Trace.environment t |> CCOpt.get_exn)
     |> CCList.map (Edge.frame_formula dis.right) in
-  let constraints = CCList.map2 (@) encodings frames
-    |> fun _ -> encodings
-    |> CCList.map (fun c -> CCList.fold_left Constraint.Mk.and_ Constraint.Mk.true_ c)
-  in CCList.fold_left Constraint.Mk.or_ Constraint.Mk.false_ constraints
+  (* check if _all_ paths in dis can be made simple *)
+  if CCList.for_all (Trace.can_simplify ~index:index left_env pre) dis.paths then
+    (* if so, then we get by with a simple encoding *)
+    let pre = Trace.Encode.simple_pre left_env pre in
+    let post = Trace.Encode.just_simple_post right_env post in
+    let encodings = dis.paths
+      |> CCList.map (Trace.to_simple_constraint ~index:index) in
+    let disjunction = CCList.map2 (@) encodings frames in
+      collapse pre disjunction post
+  else
+    (* go complicated *)
+    let pre = Trace.Encode.pre left_env pre in
+    let post = Trace.Encode.just_post right_env post in
+    let encodings = dis.paths
+      |> CCList.map (Trace.to_constraint ~index:index) in
+    let disjunction = CCList.map2 (@) encodings frames in
+      collapse pre disjunction post
+
+let encode_with_cost
+  (pre : AST.annotation) (dis : t) (post : AST.annotation) (cost : AST.cost) : Constraint.t =
+    let index = dis.left.Edge.index in
+    let right_index = dis.right.Edge.index in
+    let left_env = Edge.environment dis.left in
+    let right_env = Edge.environment dis.right in
+    let frames = dis.paths
+      |> CCList.map (fun t -> Trace.environment t |> CCOpt.get_exn)
+      |> CCList.map (Edge.frame_formula dis.right) in
+    (* check if _all_ paths in dis can be made simple *)
+    if CCList.for_all (Trace.can_simplify ~index:index left_env pre) dis.paths then
+      (* if so, then we get by with a simple encoding *)
+      let pre = Trace.Encode.simple_pre left_env pre in
+      let post = Trace.Encode.simple_post right_index right_env post cost in
+      let encodings = dis.paths
+        |> CCList.map (Trace.to_simple_constraint ~index:index) in
+      let disjunction = CCList.map2 (@) encodings frames in
+        collapse pre disjunction post
+    else
+      (* go complicated *)
+      let pre = Trace.Encode.pre left_env pre in
+      let post = Trace.Encode.post right_index right_env post cost in
+      let encodings = dis.paths
+        |> CCList.map (Trace.to_constraint ~index:index) in
+      let disjunction = CCList.map2 (@) encodings frames in
+        collapse pre disjunction post
 
 (* convert disjunction to abstraction graph *)
 let to_graph : t -> (Abstraction.State.t, Abstraction.Label.t DFA.Alphabet.t) Graph.t = fun dis ->

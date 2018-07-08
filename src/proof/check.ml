@@ -13,7 +13,7 @@ let check_trace
   (pre : AST.annotation) 
   (trace : trace) 
   (post : AST.annotation) (cost : AST.cost) : Constraint.Answer.t =
-    let encoding = Trace.encode env pre post cost trace in
+    let encoding = Trace.encode env pre trace post cost in
       Constraint.check_wrt_theory ~verbose:verbose env theory encoding
 
 module Answer = struct

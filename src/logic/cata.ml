@@ -16,12 +16,12 @@ let rec evaluate (model : Value.Model.t) : AST.expr -> Value.t = function
       | AST.IndexedVar (n, i) ->
         let index = evaluate model i in
         let map = Value.Model.get n model |> CCOpt.get_exn |> Value.Model.to_map in
-          Value.FiniteMap.get index map |> CCOpt.get_exn
+          Value.FiniteMap.get [index] map |> CCOpt.get_exn
     end
   (* the case for quantifiers *)
   | AST.FunCall (f, args) when Operation.is_quantifier f ->
     (* this needs to be fixed *)
-    Value.Boolean false
+    Value.Boolean true
   (* the case for any other function *)
   | AST.FunCall (f, args) ->
     let op = match Operation.find_op f with

@@ -292,8 +292,8 @@ module Encode = struct
         |> Types.Environment.update (Name.of_string "betainternal") (Types.Base (Types.Rational)) in
       let c' = SSA.update_expr c env in
       let annot' = SSA.update_expr annot env in
-      let expr = AST.Infix.(((var "betainternal") =@ c') &@ ((var "betainternal") >=@ (rat 0)) &@
-        (!@ (((var_i ("w", index) <=@ (var "betainternal"))) &@
+      let expr = AST.Infix.(
+        (!@ (((var_i ("w", index) <=@ c')) &@
         ((!@ (var_i ("h", index))) =>@ annot')))) in
       expr
         |> Simplify.simplify
@@ -307,28 +307,44 @@ module Encode = struct
         |> Types.Environment.update (Name.of_string "betainternal") (Types.Base (Types.Rational)) in
       let c' = SSA.update_expr c env in
       let annot' = SSA.update_expr annot env in
-      let expr = AST.Infix.(((var "betainternal") =@ c') &@ ((var "betainternal") >=@ (rat 0)) &@
-        (!@ (((var_i ("w", index) <=@ (var "betainternal"))) &@ annot'))) in
+      let expr = AST.Infix.(
+        (!@ (((var_i ("w", index) <=@ c')) &@ annot'))) in
       expr
         |> Simplify.simplify
         |> Constraint.of_expr env
   
-  (* !h *)
-  let non_blocking (index : int) (env : Types.Environment.t) : Constraint.t =
-    let env = env
-      |> Vars.extend index in 
-    let expr = AST.Infix.(!@ (var_i ("h", index))) in
-    expr |> Constraint.of_expr env
+  let just_post (env : Types.Environment.t) : AST.annotation -> Constraint.t = fun annot ->
+    let expr = AST.Infix.(
+        (!@ (var "h")) =>@ annot
+      ) in
+    Constraint.of_expr env (SSA.update_expr expr env)
+
+  let just_simple_post (env : Types.Environment.t) : AST.annotation -> Constraint.t = fun annot ->
+    let expr = AST.Infix.(!@ annot) in
+    Constraint.of_expr env (SSA.update_expr expr env)
 end
 
+(* check to see if we can use simpler encoding *)
+let can_simplify ?(index=0) (env : Types.Environment.t) (pre : AST.annotation) (trace : t) : bool =
+  let pre_encoding = Encode.pre env pre :: (to_constraint ~index:index trace) in
+  match Constraint.check pre_encoding with
+    | Constraint.Answer.Sat model -> true
+    | _ -> false
+
+(* if we can get away with a simple encoding, do so, otherwise don't *)
 let encode (env : Types.Environment.t)
-    (pre : AST.annotation)
-    (post : AST.annotation) (cost : AST.cost) : t -> Constraint.conjunction = fun trace ->
-      let pre = Encode.pre (trace |> CCList.hd |> fun t -> t.variables) pre in
-      let post = Encode.post
-        (CCList.length trace)
-        (trace |> CCList.last_opt |> CCOpt.get_exn |> fun s -> s.variables)
-        post cost in
+  (pre : AST.annotation) (trace : t) (post : AST.annotation) (cost : AST.cost) : Constraint.conjunction = 
+    let pre_env = trace |> CCList.hd |> fun s -> s.variables in
+    let post_env = trace |> CCList.last_opt |> CCOpt.get_exn |> fun s -> s.variables in
+    let length = CCList.length trace in
+    if can_simplify pre_env pre trace then
+      let pre = Encode.simple_pre pre_env pre in
+      let post = Encode.simple_post length post_env post cost in
+      let encoding = to_simple_constraint trace in
+        pre :: (encoding @ [post])
+    else
+      let pre = Encode.pre pre_env pre in
+      let post = Encode.post length post_env post cost in
       let encoding = to_constraint trace in
         pre :: (encoding @ [post])
 

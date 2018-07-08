@@ -84,19 +84,16 @@ let concretize (c : Types.Environment.t) : t -> AST.expr -> AST.expr list = fun 
 module Defaults = struct
   let log = [
     axiom_of_string "log(x) >. rat(0)";
-    axiom_of_string "log(x /. y) == log(x) -. log(y)";
-    axiom_of_string "(x <=. rat(0)) => log(x) == rat(0)"
+    (* axiom_of_string "log(x /. y) == log(x) -. log(y)"; *)
+    axiom_of_string "(x <=. rat(0)) => log(x) == rat(0)";
   ]
 
   let field = [
-    axiom_of_string "(x *. y) == (y *. x)";
+    (* axiom_of_string "(x *. y) == (y *. x)";
     axiom_of_string "(x *. (y *. z)) == ((x *. y) *. z)";
     axiom_of_string "(x *. (y +. z)) == ((x *. y) +. (x *. z))";
-    axiom_of_string "((x +. y) *. z) == ((x *. z) + (y *. z))";
-    axiom_of_string "(x *. rat(1)) == x";
-    axiom_of_string "(rat(0) *. x) == x";
-    axiom_of_string "(x *. rat(0)) == x";
-    axiom_of_string "(!(x == rat(0))) => ((x *. (rat(1) /. x)) == rat(1))";
+    axiom_of_string "((x +. y) *. z) == ((x *. z) + (y *. z))"; *)
+    (* axiom_of_string "(x == rat(0)) => ((x *. y) == rat(0))" *)
   ]
   let all = log @ field
 end

@@ -46,7 +46,7 @@ type t_alias = t
 
 (* for representing uninterpreted functions and indexed variables *)
 module FiniteMap = struct
-  module ValueMap = CCMap.Make(struct type t = t_alias let compare = Pervasives.compare end)
+  module ValueMap = CCMap.Make(struct type t = t_alias list let compare = Pervasives.compare end)
 
   type t = t_alias ValueMap.t
 
@@ -59,13 +59,10 @@ module FiniteMap = struct
       (CCFormat.list ~sep:(CCFormat.return ",@;") format_entry) 
       (m |> ValueMap.to_list)
   and format_entry f = fun (k, v) ->
-    CCFormat.fprintf f "@[%a@ =>@ %a@]" format_value k format_value v
-
-  let to_string : t -> string = fun m -> m
-    |> ValueMap.to_list
-    |> CCList.map (fun (k, v) -> (to_string k) ^ " => " ^ (to_string v))
-    |> CCString.concat ", "
-    |> fun s -> "{" ^ s ^ "}"
+    CCFormat.fprintf f "@[{%a}@ =>@ %a@]" 
+      (CCFormat.list ~sep:(CCFormat.return ", ") format_value) k 
+      format_value v
+  let to_string = CCFormat.to_string format
 end
 
 (* a model just maps constants to values/finite maps *)

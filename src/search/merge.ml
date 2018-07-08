@@ -113,22 +113,13 @@ let can_merge
     let prefix = prob.prefix in
     let left = prob.left in
     let right = prob.right in
-    (* encode pre and post conditions *)
-    let pre = Trace.Encode.pre Disjunction.(prefix.left.Edge.variables) pre in
-    let post_left = Trace.Encode.post
-      Disjunction.(left.right.Edge.index)
-      Disjunction.(left.right.Edge.variables)
-      post cost in
-    let post_right = Trace.Encode.post
-      Disjunction.(right.right.Edge.index)
-      Disjunction.(right.right.Edge.variables)
-      post cost in
-    (* wrap everything together and encode disjunctions *)
-    let left_constraint = Constraint.Mk.and_ (Disjunction.encode left) post_left in
-    let right_constraint = Constraint.Mk.and_ (Disjunction.encode right) post_right in
-    let conjunction =
-      pre :: (Disjunction.encode prefix) :: (Constraint.Mk.or_ left_constraint right_constraint) :: [] in
-    match Constraint.check_wrt_theory ~verbose:(Global.show_checking ()) env theory conjunction with
+    let middle_left = AST.Literal (AST.Boolean false) in
+    let middle_right = AST.Literal (AST.Boolean true) in
+    let prefix_encoding = Disjunction.encode pre prefix middle_left in
+    let left_encoding = Disjunction.encode_with_cost middle_right left post cost in
+    let right_encoding = Disjunction.encode_with_cost middle_right right post cost in
+    let encoding = Constraint.Mk.(and_ prefix_encoding (or_ left_encoding right_encoding)) in
+    match Constraint.check_wrt_theory ~verbose:(Global.show_checking ()) env theory [encoding] with
       | Constraint.Answer.Unsat -> true
       | _ -> false
 

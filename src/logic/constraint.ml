@@ -13,8 +13,8 @@ let name_of_symbol : S.Symbol.t -> Name.t =
   fun s -> Name.of_string (S.Symbol.to_string s)
 
 let fmap_of_entries : S.Model.entry list -> Value.FiniteMap.t = fun es -> es
-  |> CCList.filter_map (fun (args, v) ->
-      match args with [x] -> Some (value_of_expr x, value_of_expr v) | _ -> None)
+  |> CCList.map (fun (args, v) ->
+      (CCList.map value_of_expr args, value_of_expr v))
   |> Value.FiniteMap.of_list
   
 let convert_model : S.Model.t -> Value.Model.t = fun m ->
@@ -51,6 +51,11 @@ module Mk = struct
   let or_ (left : t) (right : t) : t = {
     expression = AST.Infix.(left.expression |@ right.expression);
     encoding = S.Expr.or_ left.encoding right.encoding;
+  }
+
+  let negate (c : t) : t = {
+    expression = AST.FunCall(Name.of_string "not", [c.expression]);
+    encoding = S.Expr.not c.encoding;
   }
 
   (* constants *)

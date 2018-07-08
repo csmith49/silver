@@ -60,27 +60,26 @@ end
 
 (* for sequence interpolants, our conditions are all in the form of validity of implications *)
 (* that is, we wish to compute validity of A => S *)
-let impl_validity (ante : Constraint.conjunction) (succ : Constraint.conjunction) : bool =
-  (* negate the succedent *)
-  let negate s = {
-    Constraint.expression = AST.Infix.(!@) s.Constraint.expression;
-    encoding = S.Expr.not s.Constraint.encoding;
-  } in
-  (* construct the formula A & !S *)
-  let formula = ante @ (CCList.map negate succ) in
-  let _ = if (Global.show_checking ()) then 
-    CCFormat.printf "@[<v>[INTERPOLATION] Checking@;%a@]@." Constraint.format_conjunction formula in
-  let answer = Constraint.check formula in
-  let _ = if (Global.show_checking ()) then
-    CCFormat.printf "[INTERPOLATION] Result is %a@." Constraint.Answer.format answer in
-  match answer with
-    (* valid iff A & !S unsat *)
-    | Constraint.Answer.Unsat -> true
-    | _ -> false
-
-(* infix version, because I can't stop *)
-let ( => ) (ante : Constraint.conjunction) (succ : Constraint.conjunction) : bool = 
-  impl_validity ante succ
+let impl_validity
+  ?(axioms=Theory.Defaults.all)
+  (env : Types.Environment.t)
+  (ante : Constraint.conjunction) (succ : Constraint.conjunction) : bool =
+    (* negate the succedent *)
+    let negate s = {
+      Constraint.expression = AST.Infix.(!@) s.Constraint.expression;
+      encoding = S.Expr.not s.Constraint.encoding;
+    } in
+    (* construct the formula A & !S *)
+    let formula = ante @ (CCList.map negate succ) in
+    let _ = if (Global.show_checking ()) then 
+      CCFormat.printf "@[<v>[INTERPOLATION] Checking@;%a@]@." Constraint.format_conjunction formula in
+    let answer = Constraint.check_wrt_theory env axioms formula in
+    let _ = if (Global.show_checking ()) then
+      CCFormat.printf "[INTERPOLATION] Result is %a@." Constraint.Answer.format answer in
+    match answer with
+      (* valid iff A & !S unsat *)
+      | Constraint.Answer.Unsat -> true
+      | _ -> false
 
 (* surprisingly, don't have false as a default constraint *)
 let c_false = Constraint.of_expr Types.Environment.empty (AST.Literal (AST.Boolean false))
@@ -131,7 +130,9 @@ let overly_specific = Strategy.S (fun env -> fun vars ->
     "(i <= n) & 
     (i >= 0) & 
     (best <= i) & 
-    (best >= 0) & 
+    (best >= 0) &
+    (beta >. rat(0)) &
+    (w == (rat(i) *. (beta /. rat(n)))) &
     forall(j, 0, i, 
       (abs(a[j] -. q[j]) <. (rat(2) /. e) *. log(rat(n) /. beta)) & 
       (a[best] >=. a[j])
