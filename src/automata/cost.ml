@@ -16,13 +16,10 @@ let sum : t list -> t = fun xs -> simplify (CCList.fold_left add zero xs)
 let of_expr : AST.expr -> t = fun x -> x
 
 (* to see if a cost is correct, we check validity of the following *)
-(* pre & post => (cost <= beta) *)
-let cost_acceptable ?(verbose=false) ?(theory=Theory.Defaults.all) (env : Types.Environment.t) 
-  (pre : AST.annotation) (post : AST.annotation) (beta : AST.cost) (cost : t) : bool =
-    let expr = AST.Infix.(
-      (pre &@ post) &@ (cost >.@ beta)
-    ) |> Simplify.simplify in
-    let conjunct = [Constraint.of_expr env expr] in
-    match Constraint.check_wrt_theory ~verbose:verbose env theory conjunct with
-      | Constraint.Answer.Unsat -> true
-      | _ -> false
+(* pre => (cost <= beta) *)
+let acceptable
+  (env : Types.Environment.t) (theory : Theory.t) (pre : AST.annotation) (beta : AST.cost) (cost : t) : bool =
+    let c = AST.Infix.(
+      pre &@ (cost >.@ beta)
+    ) |> simplify |> Constraint.of_expr in
+      Constraint.check_wrt_theory env theory c |> Constraint.Answer.is_unsat

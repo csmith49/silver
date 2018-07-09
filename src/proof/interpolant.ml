@@ -58,32 +58,6 @@ module Induction = struct
     | _ as i -> i
 end
 
-(* for sequence interpolants, our conditions are all in the form of validity of implications *)
-(* that is, we wish to compute validity of A => S *)
-let impl_validity
-  ?(axioms=Theory.Defaults.all)
-  (env : Types.Environment.t)
-  (ante : Constraint.conjunction) (succ : Constraint.conjunction) : bool =
-    (* negate the succedent *)
-    let negate s = {
-      Constraint.expression = AST.Infix.(!@) s.Constraint.expression;
-      encoding = S.Expr.not s.Constraint.encoding;
-    } in
-    (* construct the formula A & !S *)
-    let formula = ante @ (CCList.map negate succ) in
-    let _ = if (Global.show_checking ()) then 
-      CCFormat.printf "@[<v>[INTERPOLATION] Checking@;%a@]@." Constraint.format_conjunction formula in
-    let answer = Constraint.check_wrt_theory env axioms formula in
-    let _ = if (Global.show_checking ()) then
-      CCFormat.printf "[INTERPOLATION] Result is %a@." Constraint.Answer.format answer in
-    match answer with
-      (* valid iff A & !S unsat *)
-      | Constraint.Answer.Unsat -> true
-      | _ -> false
-
-(* surprisingly, don't have false as a default constraint *)
-let c_false = Constraint.of_expr Types.Environment.empty (AST.Literal (AST.Boolean false))
-
 (* the only other condition relies on the free variables used *)
 module Variable = struct
   type t = AST.id

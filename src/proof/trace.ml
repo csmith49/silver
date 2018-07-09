@@ -1,362 +1,69 @@
-(* we'll be doing some ssa transformation as we go along *)
-module SSA = struct
-  type t = Types.Environment.t
+module Index = struct
+  (* mapping names (from AST.Vars) to indices representing the effective "count" *)
+  module NameMap = CCMap.Make(Name)
+  type t = int NameMap.t
 
-  let increment : AST.id -> t -> t = fun id -> fun c -> match id with
-    | AST.Var n -> Types.Environment.increment n c
-    (* | AST.IndexedVar (n, _) -> Types.Environment.increment n c *)
-    | AST.IndexedVar _ -> c
+  (* not actually empty -- see get *)
+  let initial : t = NameMap.empty
 
-  let rec update_id : AST.id -> t -> AST.id = fun id -> fun c -> match id with
-    | AST.Var n -> AST.Var (Name.set_counter n (Types.Environment.get_counter n c))
-    (* | AST.IndexedVar (n, e)  -> AST.IndexedVar (Name.set_counter n (Types.Environment.get_counter n c), e) *)
-    | AST.IndexedVar (n, e) -> AST.IndexedVar (n, update_expr e c)
-  and update_expr : AST.expr -> t -> AST.expr = fun e -> fun c -> match e with
+  (* getting and setting *)
+  let get : Name.t -> t -> int = fun n -> NameMap.get_or ~default:0 (Name.reset_counter n)
+  let set : Name.t -> int -> t -> t = NameMap.add
+
+  (* incrementing just updates the name by one *)
+  let increment : Name.t -> t -> t = fun n -> fun i ->
+    let curr = get n i in
+      set (Name.reset_counter n) (curr + 1) i
+
+  (* merging takes element-wise max *)
+  let merge : t -> t -> t = NameMap.union (fun k -> fun l -> fun r -> Some (max l r))
+
+  (* updating an expression to refer to the current index per variable *)
+  let rec update (e : AST.expr) (index : t) : AST.expr = match e with
     | AST.Literal _ -> e
-    | AST.Identifier i -> AST.Identifier (update_id i c)
-    | AST.FunCall (f, args) -> AST.FunCall (f, CCList.map (fun e -> update_expr e c) args)
+    | AST.Identifier i -> let i' = match i with
+        | AST.Var n -> AST.Var (Name.set_counter n (get n index))
+        | AST.IndexedVar (n, i) -> AST.IndexedVar (n, update i index)
+      in AST.Identifier i'
+    | AST.FunCall (f, args) -> AST.FunCall (f, CCList.map (fun e -> update e index) args)
+
+  (* reset all the counters *)
+  let reset : AST.expr -> AST.expr = fun e -> update e initial
 end
 
-(* module aliases to simplify type expressions *)
+(* aliases, because we should be using them a lot *)
 module State = Program.State
 module Label = Program.Label
 
-(* another alias *)
-type path = Program.path
+type path = (State.t, Label.t) Graph.Path.t
+type step = (State.t, Label.t) Graph.Path.step
 
-(* steps annotate graph steps with type and index info *)
-type step = {
-  step : (State.t, Label.t) Graph.Path.step;
-  variables : Types.Environment.t;
-}
+(* we'll encode each path as a sequence of assignments and assumptions *)
+type cmd =
+  | Assign of AST.expr * AST.expr
+  | Assume of AST.expr
 
-let format_step f s = CCFormat.fprintf f "%a" (Graph.Path.format_step State.format Label.format) s.step
-let format_short_step f = CCFormat.fprintf f "%a" (Graph.Path.format_short_step State.format Label.format)
+(* a trace is a sequence of commands *)
+type t = cmd list
 
-(* traces are thus effectively annotated paths *)
-type t = step list
-
-let format = CCFormat.list ~sep:(CCFormat.return "@;") format_step
-
-(* this might look weird, but we have to parameterize our search by a strat and it needs state *)
-(* so instead it gives an answer and a new strategy to use *)
+(* strategies may look weird, but we want to thread them through and maintain state *)
 module Strategy = struct
-  type t = S of (step -> (Probability.uif list * t))
+  type uif = Probability.uif
+  type environment = Types.Environment.t
+  type t = S of (environment -> step -> (uif list * t))
 
-  let apply : t -> (step -> (Probability.uif list * t)) = function S s -> s
+  (* simple deconstructor *)
+  let apply : t -> (environment -> step -> uif list * t) = function S s -> s
 end
-
-(* extracts the last environment in the trace *)
-let environment : t -> Types.Environment.t option = fun trace -> trace 
-  |> CCList.last_opt
-  |> CCOpt.map (fun s -> s.variables)
-
-(* for printing nicely *)
-let format_path = Graph.Path.format State.format Label.format
-
-(* recursively from paths *)
-let rec of_path (env : Types.Environment.t) : path -> t = function
-  | [] -> []
-  | edge :: rest ->
-    let s, label, d = edge in
-    let env, label = match label with
-      | Label.Assign (i, e) ->
-        let e' = SSA.update_expr e env in
-        let env = SSA.increment i env in
-        let i' = SSA.update_id i env in
-        let label = Label.Assign (i', e') in
-          (env, label)
-      | Label.Assume e -> 
-        let e' = SSA.update_expr e env in
-        let label = Label.Assume e' in
-          (env, label)
-      | Label.Draw (i, e) ->
-        let e' = SSA.update_expr e env in
-        let env = SSA.increment i env in
-        let i' = SSA.update_id i env in
-        let label = Label.Draw (i', e') in
-          (env, label) 
-      | Label.Concrete c ->
-        let e' = SSA.update_expr c.Label.expression env in
-        let env = SSA.increment c.Label.variable env in
-        let i' = SSA.update_id c.Label.variable env in
-        let s' = SSA.update_expr c.Label.semantics env in
-        let c' = SSA.update_expr c.Label.cost env in
-        let label = Label.Concrete {
-          Label.expression = e';
-          variable = i';
-          semantics = s';
-          cost = c';
-        } in (env, label) in
-    let edge = (s, label, d) in
-    let step = {
-      step = edge;
-      variables = env;
-    } in
-      step :: (of_path env rest)
-
-(* the next module is a utility tool for maintaining a list of the weight variables and flag vars *)
-module Vars = struct
-  let w (i : int) : AST.expr = 
-    let n = Name.set_counter (Name.of_string "w") i in
-      AST.Identifier (AST.Var n)
-  
-  let h (i : int) : AST.expr =
-    let n = Name.set_counter (Name.of_string "h") i in
-      AST.Identifier (AST.Var n)
-
-  let get_name : AST.expr -> Name.t = function
-    | AST.Identifier (AST.Var n) -> n
-    | _ -> raise (Invalid_argument "not an appropriately generated name")
-
-  (* given a counter,  *)
-  let extend (i : int) (env : Types.Environment.t) : Types.Environment.t =
-    let rational = Types.Base Types.Rational in
-    let boolean = Types.Base Types.Boolean in
-    let local = [
-      (Name.of_string "w", rational, i);
-      (Name.of_string "h", boolean, i);
-    ]
-    in CCList.fold_left (fun e -> fun (n, t, i) ->
-        Types.Environment.update_w_count n t i e)
-      env local
-end
-
-(* here's a big one - we need to convert to a formula capturing the semantics *)
-(* there's a lot of ways to do this, so we have to parameterize by probability axioms and theories *)
-type encoding = Constraint.t list
-
-let format_encoding = CCFormat.list ~sep:(CCFormat.return "@ & @ ") Constraint.format
-
-let encoding_to_string : encoding -> string = fun e -> e
-  |> CCList.map (fun e -> e.Constraint.expression)
-  |> CCList.map AST.expr_to_string
-  |> CCString.concat " & "
-
-(* axiomatizing converts some Draw steps to Concrete steps, incrementing strategy as we go *)
-let axiomatize_step
-  (strategy : Strategy.t) 
-  (axioms : Probability.axiom list) : step -> step list * Strategy.t = fun s ->
-    match s.step with (src, lbl, dest) -> match lbl with
-      | Label.Draw (x, e) ->
-        (* find possible terms to concretize uifs to *)
-        let terms, strategy = Strategy.apply strategy s in
-        let concretized = axioms
-          (* concretize all axioms possible *)
-          |> CCList.filter_map (Probability.concretize (AST.Identifier x) e)
-          (* construct concrete labels *)
-          |> CCList.flat_map (fun c -> 
-            CCList.map (fun t -> Label.Concrete {
-              Label.variable = x;
-              expression = e;
-              semantics = c.Probability.semantics t;
-              cost = c.Probability.cost t;
-            }) terms)
-          (* replace label in s with concrete label from above *)
-          |> CCList.map (fun c -> {s with step = (src, c, dest)}) in
-        (* we return a non-concretized version of s in addition *)
-        (s :: concretized, strategy)
-      | _ -> let _, strategy = Strategy.apply strategy s in
-        ([s], strategy)
-  
-(* now we can axiomatize an entire path by chaining the strategy along *)
-let axiomatize (strategy : Strategy.t) (axioms : Probability.axiom list) : t -> t list = function
-  | [] -> []
-  | trace ->
-    let concretized, _ =
-      CCList.fold_left (fun (axiomatized, strat) -> fun s -> 
-        let sl, strategy = axiomatize_step strategy axioms s in
-        axiomatized @ [sl], strategy) ([], strategy) trace in
-    concretized |> CCList.cartesian_product
-
-(* converting a step to a constraint is straightforward - enc_i *)
-let step_to_constraint (i : int) : step -> Constraint.t = fun s ->
-  let env = Vars.extend i s.variables in
-  match s.step with (src, lbl, dest) -> let enc = match lbl with
-    (* x = e & w = wp & h = hp *)
-    | Label.Assign (x, e) ->
-      let x = AST.Identifier x in
-      AST.Infix.(
-        (x =@ e) &@
-        ((Vars.w i) =@ (Vars.w (i - 1))) &@
-        ((Vars.h i) =@ (Vars.h (i - 1)))
-      ) |> Simplify.simplify
-    (* (w = wp) & (h = (hp | !b)) *)
-    | Label.Assume b ->
-      AST.Infix.(
-        ((Vars.w i) =@ (Vars.w (i - 1))) &@
-        (
-          ((Vars.h i) =@ ((Vars.h (i - 1)) |@ (!@ b) ))
-        )
-      ) |> Simplify.simplify
-    (* true & w = wp & h = hp *)
-    | Label.Draw _ ->
-      AST.Infix.(
-        ((Vars.w i) =@ (Vars.w (i - 1))) &@
-        ((Vars.h i) =@ (Vars.h (i - 1)))
-      ) |> Simplify.simplify
-    (* semantics & w = wp + cost & h = hp *)
-    | Label.Concrete c ->
-      let sem = c.Label.semantics in
-      let cost = c.Label.cost in
-      AST.Infix.(
-        sem &@
-        ((Vars.w i) =@ ((Vars.w (i - 1)) +.@ cost)) &@
-        ((Vars.h i) =@ (Vars.h (i - 1)))
-      ) |> Simplify.simplify
-  in Constraint.of_expr env enc
-
-(* a simpler encoding which eschews halt variables - only works if the trace is feasible *)
-let simple_step_to_constraint (i : int) : step -> Constraint.t = fun s ->
-  let env = Vars.extend i s.variables in
-  match s.step with (src, lbl, dest) -> let enc = match lbl with
-    (* x = e & w = wp *)
-    | Label.Assign (x, e) ->
-      let x = AST.Identifier x in
-      AST.Infix.(
-        (x =@ e) &@
-        ((Vars.w i) =@ (Vars.w (i - 1)))
-      ) |> Simplify.simplify
-    (* w = wp & b *)
-    | Label.Assume b ->
-      AST.Infix.(
-        ((Vars.w i) =@ (Vars.w (i - 1))) &@
-        b
-      ) |> Simplify.simplify
-    (* w = wp *)
-    | Label.Draw (x, e) ->
-      AST.Infix.((Vars.w i) =@ (Vars.w (i - 1))) |> Simplify.simplify
-    (* semantics & w = wp + cost *)
-    | Label.Concrete c ->
-      AST.Infix.(
-      ((Vars.w i) =@ (Vars.w (i - 1)) +@ c.Label.cost) &@ c.Label.semantics) |> Simplify.simplify
-    in Constraint.of_expr env enc
-
-(* to convert a trace to a constraint, we just chain together the step_to_constraints and inc. i *)
-let rec to_constraint ?(index=1) : t -> encoding = function
-  | [] -> []
-  | step :: rest ->
-    let c = step_to_constraint index step in
-    c :: (to_constraint ~index:(index + 1) rest)
-
-let rec to_simple_constraint ?(index=1) : t -> encoding = function
-  | [] -> []
-  | step :: rest ->
-    let c = simple_step_to_constraint index step in
-    c :: (to_simple_constraint ~index:(index + 1) rest)
-
-(* given a trace, strip the variable info and convert back to a path *)
-let reset_step = fun s -> match s with (src, lbl, dest) -> 
-  let reset_id i = SSA.update_id i Types.Environment.empty in
-  let reset_expr e = SSA.update_expr e Types.Environment.empty in
-  let lbl' = match lbl with
-    | Label.Assign (i, e) ->
-      Label.Assign (reset_id i, reset_expr e)
-    | Label.Assume e -> Label.Assume (reset_expr e)
-    | Label.Draw (i, e) ->
-      Label.Draw (reset_id i, reset_expr e)
-    | Label.Concrete c -> Label.Concrete 
-      {
-        Label.expression = reset_expr c.Label.expression;
-        variable = reset_id c.Label.variable;
-        semantics = reset_expr c.Label.semantics;
-        cost = reset_expr c.Label.cost;
-      }
-  in (src, lbl', dest)
-
-let to_path : t -> path = fun tr -> tr |> CCList.map (fun s -> s.step |> reset_step)
-
-let to_word : t -> Label.t list = fun tr -> tr |> to_path |> Graph.Path.to_word
-
-let format f t = CCFormat.fprintf f "%a" (Graph.Path.format State.format Label.format) (to_path t)
-
-(* encoding a trace as a constraint - complex encoding if needed, otherwise simple encoding *)
-module Encode = struct
-  (* pre & w = 0 & h = false *)
-  let pre (env : Types.Environment.t) : AST.annotation -> Constraint.t = fun annot ->
-    let env = env |> Vars.extend 0 in
-    let expr = AST.Infix.(annot &@ ((var "w") =@ (rat 0)) &@ ((var "h") =@ (bool false))) in
-      Constraint.of_expr env expr
-  
-  (* pre & w = 0 *)
-  let simple_pre (env : Types.Environment.t) : AST.annotation -> Constraint.t = fun annot ->
-    let env = env |> Vars.extend 0 in
-    let expr = AST.Infix.(annot &@ ((var "w") =@ (rat 0))) in
-      Constraint.of_expr env expr
-
-  (* !(w <= cost & (!h => post)) *)
-  let post 
-    (index : int) (env : Types.Environment.t) : AST.annotation -> AST.cost -> Constraint.t = fun annot -> fun c ->
-      let env = env
-        |> Vars.extend index
-        |> Types.Environment.update (Name.of_string "betainternal") (Types.Base (Types.Rational)) in
-      let c' = SSA.update_expr c env in
-      let annot' = SSA.update_expr annot env in
-      let expr = AST.Infix.(
-        (!@ (((var_i ("w", index) <=@ c')) &@
-        ((!@ (var_i ("h", index))) =>@ annot')))) in
-      expr
-        |> Simplify.simplify
-        |> Constraint.of_expr env
-
-  (* !(w <= cost & post) *)
-  let simple_post
-    (index : int) (env : Types.Environment.t) : AST.annotation -> AST.cost -> Constraint.t = fun annot -> fun c ->
-      let env = env
-        |> Vars.extend index
-        |> Types.Environment.update (Name.of_string "betainternal") (Types.Base (Types.Rational)) in
-      let c' = SSA.update_expr c env in
-      let annot' = SSA.update_expr annot env in
-      let expr = AST.Infix.(
-        (!@ (((var_i ("w", index) <=@ c')) &@ annot'))) in
-      expr
-        |> Simplify.simplify
-        |> Constraint.of_expr env
-  
-  let just_post (env : Types.Environment.t) : AST.annotation -> Constraint.t = fun annot ->
-    let expr = AST.Infix.(
-        (!@ (var "h")) =>@ annot
-      ) in
-    Constraint.of_expr env (SSA.update_expr expr env)
-
-  let just_simple_post (env : Types.Environment.t) : AST.annotation -> Constraint.t = fun annot ->
-    let expr = AST.Infix.(!@ annot) in
-    Constraint.of_expr env (SSA.update_expr expr env)
-end
-
-(* check to see if we can use simpler encoding *)
-let can_simplify ?(index=0) (env : Types.Environment.t) (pre : AST.annotation) (trace : t) : bool =
-  let pre_encoding = Encode.pre env pre :: (to_constraint ~index:index trace) in
-  match Constraint.check pre_encoding with
-    | Constraint.Answer.Sat model -> true
-    | _ -> false
-
-(* if we can get away with a simple encoding, do so, otherwise don't *)
-let encode (env : Types.Environment.t)
-  (pre : AST.annotation) (trace : t) (post : AST.annotation) (cost : AST.cost) : Constraint.conjunction = 
-    let pre_env = trace |> CCList.hd |> fun s -> s.variables in
-    let post_env = trace |> CCList.last_opt |> CCOpt.get_exn |> fun s -> s.variables in
-    let length = CCList.length trace in
-    if can_simplify pre_env pre trace then
-      let pre = Encode.simple_pre pre_env pre in
-      let post = Encode.simple_post length post_env post cost in
-      let encoding = to_simple_constraint trace in
-        pre :: (encoding @ [post])
-    else
-      let pre = Encode.pre pre_env pre in
-      let post = Encode.post length post_env post cost in
-      let encoding = to_constraint trace in
-        pre :: (encoding @ [post])
 
 (* a default strategy *)
 let rec vars_in_scope : Strategy.t = Strategy.S (
-  fun s -> 
-    let expr = match s.step with (src, lbl, dest) -> match lbl with
+  fun env -> fun s -> 
+    let expr = match s with (src, lbl, dest) -> match lbl with
       | Label.Assign (_, e) -> e
       | Label.Assume b -> b
       | Label.Draw (_, e) -> e
       | Label.Concrete c -> c.Label.semantics in
-    let env = s.variables in
     let terms = expr
       |> Theory.extract_terms env
       |> Theory.G.get (Theory.symbol_from_type (Types.Base Types.Rational)|> CCOpt.get_exn) in
@@ -365,5 +72,173 @@ let rec vars_in_scope : Strategy.t = Strategy.S (
 
 (* more direct strategy *)
 let rec beta_strat : Strategy.t = Strategy.S (
-  fun _ -> ([Parse.parse_expr "beta /. rat(n)"], beta_strat)
+  fun _ -> fun _ -> ([Parse.parse_expr "beta /. rat(n)"], beta_strat)
 )
+
+(* utility for weights and whatnot *)
+module Variables = struct
+  let w = AST.Identifier (AST.Var (Name.of_string "w"))
+  let h = AST.Identifier (AST.Var (Name.of_string "h"))
+
+  (* extend an environment to bind w and h *)
+  let extend : Types.Environment.t -> Types.Environment.t = fun env ->
+    let local = [
+      (Name.of_string "w", Types.Base Types.Rational);
+      (Name.of_string "h", Types.Base Types.Boolean);
+    ] in
+      CCList.fold_left (fun e -> fun (n, t) -> Types.Environment.update n t e) env local
+end
+
+(* axiomatization uses probability axioms and strategies to concretize a path *)
+let rec axiomatize (env : Types.Environment.t)
+  (strategy : Strategy.t) (axioms : Probability.axiom list) : path -> path list = function
+    | [] -> []
+    | trace ->
+      let concretized, _ = CCList.fold_left (fun (axiomatized, strat) -> fun s ->
+          let sl, strategy = axiomatize_step env strategy axioms s in
+            (axiomatized @ [sl], strategy)
+        )
+        ([], strategy)
+        trace in
+      concretized |> CCList.cartesian_product
+(* we handle one step at a time, threading the strategy as we go *)
+and axiomatize_step (env : Types.Environment.t)
+  (strategy : Strategy.t) (axioms : Probability.axiom list) : step -> step list * Strategy.t = fun s ->
+    match s with (src, lbl, dest) -> match lbl with
+      | Label.Draw (x, e) ->
+        (* find possible terms to concretize uifs to *)
+        let terms, strategy = Strategy.apply strategy env s in
+        let concretized = axioms
+          (* concretize all possible axioms *)
+          |> CCList.filter_map (Probability.concretize (AST.Identifier x) e)
+          (* construct concrete labels *)
+          |> CCList.flat_map (fun c ->
+            CCList.map (fun t -> Label.Concrete {
+              Label.variable = x;
+              expression = e;
+              semantics = c.Probability.semantics t;
+              cost = c.Probability.cost t;
+            }) terms)
+          (* replace label in s with concrete label from above *)
+          |> CCList.map (fun c -> (src, c, dest)) in
+        (* we return a non-concretized option as well *)
+        (s :: concretized, strategy)
+      | _ -> let _, strategy = Strategy.apply strategy env s in ([s], strategy)
+
+(* encoding converts paths to words containing only assignments and assumptions *)
+let encode_step : step -> cmd list = fun (src, lbl, dest) -> match lbl with
+  (* x = e *)
+  | Label.Assign (x, e) -> [
+      Assign (AST.Identifier x, e);
+    ]
+  (* h = (h | !b) *)
+  | Label.Assume b -> [
+      Assign (Variables.h, AST.Infix.(Variables.h |@ (!@ b)));  
+    ]
+  (* true *)
+  | Label.Draw _ -> []
+  (* semantics & w = w + cost *)
+  | Label.Concrete c -> [
+      Assume (c.Label.semantics);
+      Assign (Variables.w, AST.Infix.(Variables.w +.@ c.Label.cost));
+  ]
+let encode_simple_step : step -> cmd list = fun (src, lbl, dest) -> match lbl with
+  (* x = e *)
+  | Label.Assign (x, e) -> [
+      Assign (AST.Identifier x, e);
+    ]
+  (* b *)
+  | Label.Assume b -> [
+      Assume b;
+    ]
+  (* true *)
+  | Label.Draw _ -> []
+  (* semantics & w = w + cost *)
+  | Label.Concrete c -> [
+      Assume (c.Label.semantics);
+      Assign (Variables.w, AST.Infix.(Variables.w +.@ c.Label.cost))
+    ]
+
+(* lifting step encoding to whole path *)
+let rec encode : path -> t = function
+  | [] -> []
+  | step :: rest ->
+    (encode_step step) @ (encode rest)
+let rec encode_simple : path -> t = function
+  | [] -> []
+  | step :: rest ->
+    (encode_simple_step step) @ (encode_simple rest)
+
+(* we can convert a trace to a constraint by threading an index and updating accordingly *)
+let cmd_to_constraint (index : Index.t) : cmd -> Constraint.t * Index.t = function
+  | Assign (x, e) ->
+    let e' = Index.update e index in
+    let index' = match x with
+      | AST.Identifier (AST.Var n) -> Index.increment n index
+      | _ -> index in
+    let x' = Index.update x index' in
+      AST.Infix.(x' =@ e'), index'
+  | Assume b ->
+    let b' = Index.update b index in
+      b', index
+let to_constraint (index : Index.t) : t -> Constraint.t * Index.t = fun path ->
+  let rec aux path index = match path with
+    | [] -> [], index
+    | cmd :: rest -> 
+      let x, intermediate_index = cmd_to_constraint index cmd in
+      let xs, index' = aux rest intermediate_index in
+        x :: xs, index' in
+  let constraints, index = aux path index in
+    (Constraint.conjunction constraints, index)
+
+(* annotations provide mechanisms for converting pre and post conditions to cmd lists *)
+module Annotation = struct
+  (* pre & w = 0 & h = false *)
+  let pre : AST.annotation -> cmd list = fun annot ->
+    [
+      Assume annot;
+      Assign (Variables.w, AST.Infix.rat 0);
+      Assign (Variables.h, AST.Infix.bool false);
+    ]
+  (* pre & w = 0 *)
+  let simple_pre : AST.annotation -> cmd list = fun annot ->
+    [
+      Assume annot;
+      Assign (Variables.w, AST.Infix.rat 0);
+    ]
+  (* w <= beta & (!h => post) *)
+  (* negated, becomes w > beta | (!h & !post) *)
+  let post (annot : AST.annotation) (beta : AST.cost) : cmd list =
+    let cost = AST.Infix.(Variables.w >.@ beta) in
+    let failure = AST.Infix.((!@ Variables.h) &@ (!@ annot)) in
+    [
+      Assume AST.Infix.(cost |@ failure);
+    ]
+  (* w <= beta & post *)
+  (* negated, becomes w > beta | !post *)
+  let simple_post (annot : AST.annotation) (beta : AST.cost) : cmd list =
+    let cost = AST.Infix.(Variables.w >.@ beta) in
+    let failure = AST.Infix.(!@ annot) in
+    [
+      Assume AST.Infix.(cost |@ failure);
+    ]
+end
+
+(* if pre & path is feasible, we can use the simpler encoding *)
+let is_simplifiable (env : Types.Environment.t) (pre : AST.annotation) : path -> bool = fun p ->
+  let encoding = (Annotation.pre pre) @ (encode p) in
+  let c, _ = to_constraint Index.initial encoding in
+    Constraint.check env c |> Constraint.Answer.is_sat
+
+let path_formula (env : Types.Environment.t)
+  (pre : AST.annotation) (p : path) (post : AST.annotation) (cost : AST.cost) : Constraint.t =
+    let encoding = if is_simplifiable env pre p then
+        (Annotation.simple_pre pre)
+          @ (encode_simple p)
+          @ (Annotation.simple_post post cost)
+      else
+        (Annotation.pre pre)
+          @ (encode p)
+          @ (Annotation.post post cost) in
+    let c, _ = to_constraint Index.initial encoding in
+      c

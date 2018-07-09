@@ -66,3 +66,29 @@ and encode_identifier (c : Types.Environment.t) : AST.id -> S.Expr.t = function
           S.F.apply f [e']
       | _ -> raise (Encoding_error "indexed type not found")
     end
+
+(* these conversion functions are crucial *)
+exception Conversion_error
+
+let value_of_expr : S.Expr.t -> Value.t = fun e ->
+  if S.Expr.is_bool e then Value.of_bool (S.Expr.to_bool e) else
+  if S.Expr.is_rational e then Value.of_rational (S.Expr.to_rational e) else
+  if S.Expr.is_int e then Value.of_int (S.Expr.to_int e) else
+    raise Conversion_error
+
+let name_of_symbol : S.Symbol.t -> Name.t =
+  fun s -> Name.of_string (S.Symbol.to_string s)
+
+let fmap_of_entries : S.Model.entry list -> Value.FiniteMap.t = fun es -> es
+  |> CCList.map (fun (args, v) ->
+      (CCList.map value_of_expr args, value_of_expr v))
+  |> Value.FiniteMap.of_list
+  
+let convert_model : S.Model.t -> Value.Model.t = fun m ->
+  let constants = S.Model.constants m
+    |> CCList.map (fun c -> 
+      (name_of_symbol c, Value.Model.Concrete (c |> S.Model.get_constant m |> value_of_expr))) in
+  let indexed = S.Model.functions m
+    |> CCList.map (fun c ->
+      (name_of_symbol c, Value.Model.Map (c |> S.Model.get_function m |> fmap_of_entries))) in
+    Value.Model.of_list (constants @ indexed)
