@@ -82,18 +82,30 @@ let concretize (c : Types.Environment.t) : t -> AST.expr -> AST.expr list = fun 
     G.get start derivations
 
 module Defaults = struct
+  let bb = [
+    axiom_of_string "(bb(x) >= 0) & (bb(x) <= 3)";
+  ]
+
   let log = [
-    axiom_of_string "log(x) >. rat(0)";
-    (* axiom_of_string "log(x /. y) == log(x) -. log(y)"; *)
+    axiom_of_string "(x >. rat(0)) => (log(x) >. rat(0))";
+    axiom_of_string "log(x /. y) == log(x) -. log(y)";
     axiom_of_string "(x <=. rat(0)) => log(x) == rat(0)";
   ]
 
+  let division = [
+    axiom_of_string "(y >. rat(1)) => (x >. (x /. y))";
+    axiom_of_string "((x >. rat(0)) & (y >. rat(0))) => ((x /. y) >. rat(0))"
+  ]
+
   let field = [
-    (* axiom_of_string "(x *. y) == (y *. x)";
+    (* axiom_of_string "((x /. rat(2)) +. (x /. rat(2))) == x"; *)
+    (* axiom_of_string "((x *. y) /. y) == x";
+    axiom_of_string "((x *. y) /. (z *. y)) == (x /. z)";
+    axiom_of_string "(x *. y) == (y *. x)";
     axiom_of_string "(x *. (y *. z)) == ((x *. y) *. z)";
     axiom_of_string "(x *. (y +. z)) == ((x *. y) +. (x *. z))";
-    axiom_of_string "((x +. y) *. z) == ((x *. z) + (y *. z))"; *)
-    (* axiom_of_string "(x == rat(0)) => ((x *. y) == rat(0))" *)
+    axiom_of_string "((x +. y) *. z) == ((x *. z) + (y *. z))";
+    axiom_of_string "(x == rat(0)) => ((x *. y) == rat(0))" *)
   ]
-  let all = log @ field
+  let all = bb @ log @ field @ division
 end

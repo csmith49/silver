@@ -1,0 +1,12 @@
+{{ (actual == true) | (actual == false) }}
+
+truthfully ~ bern(rat(1) /. rat(2));
+
+if (truthfully) then {
+    answer = actual;
+} else {
+    answer ~ bern(rat(1) /. rat(2));
+}
+
+{{ answer == actual }}
+{{ rat(1) /. rat(4) }}

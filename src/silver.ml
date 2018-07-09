@@ -19,7 +19,7 @@ printf "@[<v>[AUTOMATA SUMMARY]@;%a@;[ENVIRONMENT]@;%s@;"
 
 (* pick some parameters of the search - these should be controllable from cmd line flags *)
 let strategy = Trace.beta_strat in
-let d_axioms = Probability.Laplace.all @ Probability.Bernoulli.all in
+let d_axioms = Probability.Defaults.all in
 let heuristic = History.Heuristic.smallest_abstraction in
 
 (* instead of maintaining a single abstraction, we maintain a total history *)

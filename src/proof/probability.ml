@@ -57,3 +57,22 @@ module Bernoulli = struct
 
   let all = [var_1; var_2]
 end
+
+module BB = struct
+  let var_1 = mk "bb(p)" "x == 0" "p *. p"
+  let var_2 = mk "bb(p)" "x == 1" "p *. (rat(1) -. p)"
+  let var_3 = mk "bb(p)" "x == 2" "(rat(1) -. p) *. p"
+  let var_4 = mk "bb(p)" "x == 3" "(rat(1) -. p) *. (rat(1) -. p)"
+
+  let var_5 = mk "bb(p)" "x <= 1" "p"
+  let var_6 = mk "bb(p)" "x > 1" "rat(1) -. p"
+
+  let var_7 = mk "bb(p)" "(x == 0) | (x == 2)" "p"
+  let var_8 = mk "bb(p)" "(x == 1) | (x == 3)" "rat(1) -. p"
+
+  let all = [var_1; var_2; var_3; var_4; var_5; var_6; var_7; var_8]
+end
+
+module Defaults = struct
+  let all = Laplace.all @ Bernoulli.all @ BB.all
+end

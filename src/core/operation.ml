@@ -129,12 +129,9 @@ module Defaults = struct
       Value.of_num (max (Value.to_num v) (Value.to_num w)));
     solver_encoding = lift_binary (fun v -> fun w ->
       S.Expr.ite
-        (S.Expr.geq
+        (S.Expr.gt v w)
           v
           w
-        )
-        v
-        w
       );
   }
   let int_to_rat = {
@@ -348,7 +345,41 @@ module Defaults = struct
       let uif = S.F.mk "bern" [S.Sort.rational] S.Sort.boolean in
         fun xs -> S.F.apply uif xs;
   }
-  let distributions = [lap; bern]
+  let bb = {
+    name = Name.of_string "bb";
+    symbol = "bb";
+    signature = f [rational] integer;
+    value_encoding = lift_unary (fun x -> Value.Boolean true);
+    solver_encoding =
+      let uif = S.F.mk "bb" [S.Sort.rational] S.Sort.integer in
+        fun xs -> S.F.apply uif xs;
+  }
+  let distributions = [lap; bern; bb]
+
+  (* weird projections we need for bb *)
+  let bbfst = {
+    name = Name.of_string "bbfst";
+    symbol = "bbfst";
+    signature = f [integer] boolean;
+    value_encoding = lift_unary (fun x -> Value.of_bool (x <= (Value.of_int 1)));
+    solver_encoding = fun xs -> match xs with
+      | [v] -> S.Expr.leq v (S.Expr.int 1)
+      | _ -> raise (Encoding_error "incorrect arity for projection");
+  }
+  let bbsnd = {
+    name = Name.of_string "bbsnd";
+    symbol = "bbsnd";
+    signature = f [integer] boolean;
+    value_encoding = lift_unary (fun x -> Value.of_bool 
+      (
+        (x = (Value.of_int 1)) ||
+        (x = (Value.of_int 3))
+      ));
+    solver_encoding = fun xs -> match xs with
+      | [v] -> S.Expr.or_ (S.Expr.eq v (S.Expr.int 1)) (S.Expr.eq v (S.Expr.int 3))
+      | _ -> raise (Encoding_error "incorrect arity for projection");
+  }
+  let projections = [bbfst ; bbsnd]
 
   (* and the annoying ones we have to deal with *)
   let log = {
@@ -363,7 +394,15 @@ module Defaults = struct
   let complicated = [log]
 
   (* all the defined functions *)
-  let defined = unary @ arithmetic @ comparisons @ logical @ distributions @ complicated @ quantifiers
+  let defined = 
+    unary @ 
+    arithmetic @ 
+    comparisons @ 
+    logical @ 
+    distributions @ 
+    complicated @ 
+    quantifiers @
+    projections
 end
 
 (* constructing simple ones on the fly *)

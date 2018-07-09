@@ -1,4 +1,4 @@
-{{ p >. rat(0) }}
+{{ (p >. rat(0)) & (p <. rat(1)) }}
 
 x ~ bern(rat(1) /. rat(2));
 if (x) then {
@@ -8,4 +8,4 @@ if (x) then {
 }
 
 {{ y }}
-{{ p }}
+{{ rat(1) -. (p /. rat(2)) }}
