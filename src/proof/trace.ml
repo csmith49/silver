@@ -38,13 +38,37 @@ module Label = Program.Label
 type path = (State.t, Label.t) Graph.Path.t
 type step = (State.t, Label.t) Graph.Path.step
 
+let format_path = Graph.Path.format State.format Label.format
+
 (* we'll encode each path as a sequence of assignments and assumptions *)
-type cmd =
-  | Assign of AST.expr * AST.expr
-  | Assume of AST.expr
+module Command = struct
+  type t =
+    | Assign of AST.expr * AST.expr
+    | Assume of AST.expr
+
+  let format f = function
+    | Assign (x, e) -> CCFormat.fprintf f "%a = %a" AST.format x AST.format e
+    | Assume b -> CCFormat.fprintf f "%a" AST.format b
+
+  let to_constraint (index : Index.t) : t -> Constraint.t * Index.t = function
+    | Assign (x, e) ->
+      let e' = Index.update e index in
+      let index' = match x with
+        | AST.Identifier (AST.Var n) -> Index.increment n index
+        | _ -> index in
+      let x'= Index.update x index' in
+        AST.Infix.(x' =@ e'), index'
+    | Assume b ->
+      let b' = Index.update b index in
+        b', index
+end
 
 (* a trace is a sequence of commands *)
-type t = cmd list
+type t = Command.t list
+
+(* for printing *)
+let format f trace = CCFormat.fprintf f "@[<hv>%a@]"
+  (CCFormat.list ~sep:(CCFormat.return ";@ ") Command.format) trace
 
 (* strategies may look weird, but we want to thread them through and maintain state *)
 module Strategy = struct
@@ -126,37 +150,37 @@ and axiomatize_step (env : Types.Environment.t)
       | _ -> let _, strategy = Strategy.apply strategy env s in ([s], strategy)
 
 (* encoding converts paths to words containing only assignments and assumptions *)
-let encode_step : step -> cmd list = fun (src, lbl, dest) -> match lbl with
+let encode_step : step -> Command.t list = fun (src, lbl, dest) -> match lbl with
   (* x = e *)
   | Label.Assign (x, e) -> [
-      Assign (AST.Identifier x, e);
+      Command.Assign (AST.Identifier x, e);
     ]
   (* h = (h | !b) *)
   | Label.Assume b -> [
-      Assign (Variables.h, AST.Infix.(Variables.h |@ (!@ b)));  
+      Command.Assign (Variables.h, AST.Infix.(Variables.h |@ (!@ b)));  
     ]
   (* true *)
   | Label.Draw _ -> []
   (* semantics & w = w + cost *)
   | Label.Concrete c -> [
-      Assume (c.Label.semantics);
-      Assign (Variables.w, AST.Infix.(Variables.w +.@ c.Label.cost));
+      Command.Assume (c.Label.semantics);
+      Command.Assign (Variables.w, AST.Infix.(Variables.w +.@ c.Label.cost));
   ]
-let encode_simple_step : step -> cmd list = fun (src, lbl, dest) -> match lbl with
+let encode_simple_step : step -> Command.t list = fun (src, lbl, dest) -> match lbl with
   (* x = e *)
   | Label.Assign (x, e) -> [
-      Assign (AST.Identifier x, e);
+      Command.Assign (AST.Identifier x, e);
     ]
   (* b *)
   | Label.Assume b -> [
-      Assume b;
+      Command.Assume b;
     ]
   (* true *)
   | Label.Draw _ -> []
   (* semantics & w = w + cost *)
   | Label.Concrete c -> [
-      Assume (c.Label.semantics);
-      Assign (Variables.w, AST.Infix.(Variables.w +.@ c.Label.cost))
+      Command.Assume (c.Label.semantics);
+      Command.Assign (Variables.w, AST.Infix.(Variables.w +.@ c.Label.cost))
     ]
 
 (* lifting step encoding to whole path *)
@@ -170,22 +194,11 @@ let rec encode_simple : path -> t = function
     (encode_simple_step step) @ (encode_simple rest)
 
 (* we can convert a trace to a constraint by threading an index and updating accordingly *)
-let cmd_to_constraint (index : Index.t) : cmd -> Constraint.t * Index.t = function
-  | Assign (x, e) ->
-    let e' = Index.update e index in
-    let index' = match x with
-      | AST.Identifier (AST.Var n) -> Index.increment n index
-      | _ -> index in
-    let x' = Index.update x index' in
-      AST.Infix.(x' =@ e'), index'
-  | Assume b ->
-    let b' = Index.update b index in
-      b', index
 let to_constraint (index : Index.t) : t -> Constraint.t * Index.t = fun path ->
   let rec aux path index = match path with
     | [] -> [], index
     | cmd :: rest -> 
-      let x, intermediate_index = cmd_to_constraint index cmd in
+      let x, intermediate_index = Command.to_constraint index cmd in
       let xs, index' = aux rest intermediate_index in
         x :: xs, index' in
   let constraints, index = aux path index in
@@ -194,33 +207,33 @@ let to_constraint (index : Index.t) : t -> Constraint.t * Index.t = fun path ->
 (* annotations provide mechanisms for converting pre and post conditions to cmd lists *)
 module Annotation = struct
   (* pre & w = 0 & h = false *)
-  let pre : AST.annotation -> cmd list = fun annot ->
+  let pre : AST.annotation -> Command.t list = fun annot ->
     [
-      Assume annot;
-      Assign (Variables.w, AST.Infix.rat 0);
-      Assign (Variables.h, AST.Infix.bool false);
+      Command.Assume annot;
+      Command.Assign (Variables.w, AST.Infix.rat 0);
+      Command.Assign (Variables.h, AST.Infix.bool false);
     ]
   (* pre & w = 0 *)
-  let simple_pre : AST.annotation -> cmd list = fun annot ->
+  let simple_pre : AST.annotation -> Command.t list = fun annot ->
     [
-      Assume annot;
-      Assign (Variables.w, AST.Infix.rat 0);
+      Command.Assume annot;
+      Command.Assign (Variables.w, AST.Infix.rat 0);
     ]
   (* w <= beta & (!h => post) *)
   (* negated, becomes w > beta | (!h & !post) *)
-  let post (annot : AST.annotation) (beta : AST.cost) : cmd list =
+  let post (annot : AST.annotation) (beta : AST.cost) : Command.t list =
     let cost = AST.Infix.(Variables.w >.@ beta) in
     let failure = AST.Infix.((!@ Variables.h) &@ (!@ annot)) in
     [
-      Assume AST.Infix.(cost |@ failure);
+      Command.Assume AST.Infix.(cost |@ failure);
     ]
   (* w <= beta & post *)
   (* negated, becomes w > beta | !post *)
-  let simple_post (annot : AST.annotation) (beta : AST.cost) : cmd list =
+  let simple_post (annot : AST.annotation) (beta : AST.cost) : Command.t list =
     let cost = AST.Infix.(Variables.w >.@ beta) in
     let failure = AST.Infix.(!@ annot) in
     [
-      Assume AST.Infix.(cost |@ failure);
+      Command.Assume AST.Infix.(cost |@ failure);
     ]
 end
 

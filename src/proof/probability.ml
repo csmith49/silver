@@ -52,8 +52,8 @@ module Laplace = struct
 end
 
 module Bernoulli = struct
-  let var_1 = mk "bern(p)" "x == true" "rat(1) -. p"
-  let var_2 = mk "bern(p)" "x == false" "p"
+  let var_1 = mk "bern(p)" "x == true" "p"
+  let var_2 = mk "bern(p)" "x == false" "rat(1) -. p"
 
   let all = [var_1; var_2]
 end

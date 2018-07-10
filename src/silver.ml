@@ -9,7 +9,9 @@ let _ = Global.get_args ();
 let program = Parse.parse !Global.filename in
 let pre, ast, post, cost = program in
 let _ = printf "PARSED@." in 
-let env = Static.global_context program |> CCOpt.get_exn in
+let env = Static.global_context program 
+  |> CCOpt.get_exn 
+  |> Trace.Variables.extend in
 let automata = Program.of_ast ast in
 
 (* minor summary info *)
@@ -65,7 +67,8 @@ while (not !finished) do
           | Abstraction.Counterexample path ->
             let _ = CCFormat.printf "@[<v>[TRACE FOUND]@; @[%a@]@;@]@;" Trace.format_path path in
             (* STEP 2: check if the path satisfies the post-condition *)
-            let proofs = Check.check ~verbose:(Global.show_checking ()) env strategy d_axioms pre path post cost in
+            let proofs = Check.check ~verbose:(Global.show_checking ()) theory strategy d_axioms 
+              env pre path post cost in
             begin match proofs with
               (* CASE 2.1: the path can't be shown correct - return as counterexample *)
               | Check.Answer.Incorrect -> begin

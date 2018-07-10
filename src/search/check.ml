@@ -8,7 +8,7 @@ type trace = Trace.t
 
 module Answer = struct
   type t =
-    | Correct of path list
+    | Correct of Abstraction.proof list
     | Incorrect
     | Unknown
 
@@ -17,7 +17,10 @@ module Answer = struct
     let correct_paths = answers
       |> CCList.filter (fun (p, ans) -> Constraint.Answer.is_unsat ans)
       |> CCList.map fst in
-    if not (CCList.is_empty correct_paths) then (Correct correct_paths)
+    if not (CCList.is_empty correct_paths) then
+      let proofs = correct_paths
+        |> CCList.map Abstraction.of_path in
+      Correct proofs
     (* if there are any unknown results (and no unsat), we answer unknown *)
     else if CCList.exists (CCPair.map_snd Constraint.Answer.is_unknown) answers then
       Unknown
