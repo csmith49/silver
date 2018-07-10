@@ -21,6 +21,7 @@ printf "@[<v>[AUTOMATA SUMMARY]@;%a@;[ENVIRONMENT]@;%s@;"
 let strategy = Trace.beta_strat in
 let d_axioms = Probability.Defaults.all in
 let heuristic = History.Heuristic.smallest_abstraction in
+let theory = Theory.Defaults.all in
 
 (* instead of maintaining a single abstraction, we maintain a total history *)
 let history = ref (History.init heuristic) in
@@ -52,7 +53,7 @@ while (not !finished) do
           | Abstraction.Covers -> begin
               printf "[COVERED] Automata covered. Checking costs...@.";
               let abs_cost = Abstraction.cost abstraction in
-              if Cost.cost_acceptable ~verbose:(Global.show_checking ()) env pre post cost abs_cost then
+              if Cost.acceptable env theory pre cost abs_cost then
                 begin
                   finished := true;
                   printf "[DONE] Cost is small. Program correct.";
@@ -91,7 +92,7 @@ while (not !finished) do
             end
         end;
         (* handle greedy merges *)
-        if not !finished then
+        (* if not !finished then
           let merges = Merge.merge_abstraction ~verbose:(Global.show_branching ())
             env pre post cost abstraction in
           merges
@@ -106,7 +107,7 @@ while (not !finished) do
           gens
             |> CCList.map (fun (i, proof) -> History.Extend.generalize branch i proof)
             |> CCList.iter (fun branch ->
-              history := History.add heuristic !history branch);
+              history := History.add heuristic !history branch); *)
       end
     | None -> begin
       finished := true;
