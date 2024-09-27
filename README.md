@@ -2,9 +2,10 @@
 
 ## Requirements
 
-Ocaml 4.05.0
-Containers
-Menhir
-Ocamlbuild
+Use OCaml version `5.2.0`.
 
-All can be installed using OPAM.
+Relies on `z3`, `zarith`, `containers`, and `MenhirLib`. All can be installed using `opam`.
+
+## To Build
+
+Run `make`. The binary is built as `./silver`.
