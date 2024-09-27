@@ -93,7 +93,7 @@ base:
   | e = delimited(LEFT_PAREN, expression, RIGHT_PAREN) { e }
 
 literal:
-  | i = INT { AST.Literal (AST.Integer i) }
+  | i = INT { AST.Literal (AST.Integer (Z.of_int i)) }
   | b = BOOL { AST.Literal (AST.Boolean b) }
 
 identifier:

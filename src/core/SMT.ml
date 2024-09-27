@@ -49,10 +49,10 @@ module Make = functor (C : CONTEXT) -> struct
     (* and constructing constants *)
     let bool : bool -> t = fun b -> 
       if b then Z3.Boolean.mk_true C.context else Z3.Boolean.mk_false C.context
-    let rational : int -> int -> t =
-      Z3.Arithmetic.Real.mk_numeral_nd C.context
-    let int : int -> t =
-      Z3.Arithmetic.Integer.mk_numeral_i C.context
+    let rational : Z.t -> Z.t -> t = fun n -> fun d ->
+      Z3.Arithmetic.Real.mk_numeral_nd C.context (Z.to_int n) (Z.to_int d)
+    let int : Z.t -> t = fun i ->
+      Z3.Arithmetic.Integer.mk_numeral_i C.context (Z.to_int i)
 
     (* and variables *)
     let variable : string -> Sort.t -> t = Z3.Expr.mk_const_s C.context
@@ -68,9 +68,9 @@ module Make = functor (C : CONTEXT) -> struct
       | Z3enums.L_TRUE -> true
       | _ -> raise (Invalid_argument "that's not a bool")
 
-    let to_rational : t -> Rational.t = fun e -> Rational.of_ratio (Z3.Arithmetic.Real.get_ratio e)
+    let to_rational : t -> Q.t = fun e -> Z3.Arithmetic.Real.get_ratio e
 
-    let to_int : t -> int = fun e -> Z3.Arithmetic.Integer.get_int e
+    let to_int : t -> Z.t = fun e -> Z3.Arithmetic.Integer.get_big_int e
 
     (* printing - no real format *)
     let to_string = Z3.Expr.to_string

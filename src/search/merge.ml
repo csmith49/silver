@@ -45,15 +45,15 @@ let to_problem
     (* check the disjunction leading to branch point is the same *)
     let prefix = Disjunction.of_graph edge [start] [branch_point] left in
     let prefix' = Disjunction.of_graph edge [start] [branch_point] right in
-    if not ((CCOpt.equal Disjunction.eq) prefix prefix') then None else try
+    if not ((CCOption.equal Disjunction.eq) prefix prefix') then None else try
       (* this part can fail, as the prefix might not be constructable *)
-      let prefix = prefix |> CCOpt.get_exn in
+      let prefix = prefix |> CCOption.get_exn_or "" in
       let edge = prefix.Disjunction.right in
       (* construct left and right disjunctions *)
       let left = Disjunction.of_graph edge [branch_point] final left 
-        |> CCOpt.get_exn in
+        |> CCOption.get_exn_or "" in
       let right = Disjunction.of_graph edge [branch_point] final right 
-        |> CCOpt.get_exn in
+        |> CCOption.get_exn_or "" in
       (* check to make sure left goes through one branch, and right through the other *)
       let left_tag = left.Disjunction.paths
         |> CCList.map CCList.hd
@@ -129,7 +129,7 @@ let to_proof
   (start : State.t) (final : State.t list)
   (left_cost : AST.expr) (right_cost : AST.expr) : problem -> proof = fun prob ->
   let automata = {
-    DFA.states = CCList.uniq State.eq (
+    DFA.states = CCList.uniq ~eq:State.eq (
         (Disjunction.states prob.prefix) @ 
         (Disjunction.states prob.left) @ 
         (Disjunction.states prob.right)

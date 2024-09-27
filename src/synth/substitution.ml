@@ -6,7 +6,7 @@ type id = AST.id
 module Id = struct
   type t = id
 
-  let compare = Pervasives.compare
+  let compare = Stdlib.compare
 end
 
 module IdMap = CCMap.Make(Id)

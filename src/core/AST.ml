@@ -1,5 +1,3 @@
-open Rational
-
 (* the representation of functions *)
 type op = Name.t
 
@@ -12,8 +10,8 @@ and id =
   | Var of Name.t
   | IndexedVar of Name.t * expr
 and lit =
-  | Integer of int
-  | Rational of Rational.t
+  | Integer of Z.t
+  | Rational of Q.t
   | Boolean of bool
 
 (* annotations are pre/post conditions *)
@@ -36,7 +34,7 @@ type quantifier =
 
 type program = annotation * t * annotation * cost
 
-let compare = Pervasives.compare
+let compare = Stdlib.compare
 let eq = (=)
 
 (* formatting and printing *)
@@ -55,8 +53,8 @@ let rec format f : expr -> unit = function
         f' 
         (CCFormat.list ~sep:(CCFormat.return ",@ ") format) rest
 and format_lit f : lit -> unit = function
-  | Integer i -> CCFormat.int f i
-  | Rational q -> Rational.format f q
+  | Integer i -> CCFormat.int f (Z.to_int i)
+  | Rational q -> CCFormat.string f (Q.to_string q)
   | Boolean b -> CCFormat.bool f b
 and format_id f : id -> unit = function
   | Var n -> Name.format f n
@@ -66,8 +64,8 @@ and format_id f : id -> unit = function
 (* print statements *)
 
 let rec lit_to_string : lit -> string = function
-  | Integer i -> string_of_int i
-  | Rational q -> Rational.to_string q
+  | Integer i -> Z.to_string i
+  | Rational q -> Q.to_string q
   | Boolean b -> string_of_bool b
 and id_to_string : id -> string = function
   | Var n -> Name.to_string n
@@ -170,10 +168,10 @@ module Infix = struct
     Identifier (Var (Name.set_counter (Name.of_string s) i))
 
   let rat : int -> expr = fun i ->
-    Literal (Rational (Rational.Q (i, 1)))
+    Literal (Rational (Q.of_int i))
 
   let int : int -> expr = fun i ->
-    Literal (Integer i)
+    Literal (Integer (Z.of_int i))
 
   let bool : bool -> expr = fun b ->
     Literal (Boolean b)

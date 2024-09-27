@@ -23,12 +23,12 @@ type axiom = {
 (* the payoff *)
 let concretize : AST.expr -> AST.expr -> axiom -> concretized_axiom option = fun id -> fun e -> fun a -> 
     let e_sub = Substitution.left_unify a.pattern e in
-    match CCOpt.(>>=) e_sub (Substitution.add x id) with
+    match CCOption.(>>=) e_sub (Substitution.add x id) with
       | Some s -> 
         let semantics_fun = fun uif -> 
-          Substitution.apply a.abstract_semantics (Substitution.add f uif s |> CCOpt.get_exn) in
+          Substitution.apply a.abstract_semantics (Substitution.add f uif s |> CCOption.get_exn_or "") in
         let cost_fun = fun uif -> 
-          Substitution.apply a.abstract_cost (Substitution.add f uif s |> CCOpt.get_exn) in
+          Substitution.apply a.abstract_cost (Substitution.add f uif s |> CCOption.get_exn_or "") in
         Some {
           semantics = semantics_fun;
           cost = cost_fun;

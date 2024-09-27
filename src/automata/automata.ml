@@ -19,7 +19,7 @@ module Symbol = struct
   let left_contains ?(s_eq = (=)) (left : 'a t) (right : 'a t) : bool = match left, right with
     | Singleton l, Star -> true
     | Singleton l, Singleton r -> s_eq l r
-    | Singleton l, Complement rs -> not (CCList.mem s_eq l rs)
+    | Singleton l, Complement rs -> not (CCList.mem ~eq:s_eq l rs)
     | _ -> false
 
   (* meet on the powerset lattice *)
@@ -29,8 +29,8 @@ module Symbol = struct
     | Star, (_ as r) -> r
     | (_ as l), Star -> l
     | Singleton l, Singleton r -> if s_eq l r then Singleton l else Empty
-    | Singleton l, Complement rs -> if (CCList.mem s_eq l rs) then Empty else Singleton l
-    | Complement ls, Singleton r -> if (CCList.mem s_eq r ls) then Empty else Singleton r
+    | Singleton l, Complement rs -> if (CCList.mem ~eq:s_eq l rs) then Empty else Singleton l
+    | Complement ls, Singleton r -> if (CCList.mem ~eq:s_eq r ls) then Empty else Singleton r
     | Complement ls, Complement rs -> Complement (ls @ rs)
 
   (* making our life easier - functional construction mixes better with the rest of the infrastructure *)
@@ -105,7 +105,7 @@ let rec consume ?(l_eq = (=)) (start : 's) (word : 'w list) (automata : ('s, 'w)
 (* check to see if a word is accepted *)
 let mem ?(s_eq = (=)) ?(l_eq = (=)) (word : 'w list) (automata : ('s, 'w) t) : bool =
   let terminal_states = consume ~l_eq:l_eq automata.start word automata in
-  let accepting = fun state -> CCList.mem s_eq state automata.final in
+  let accepting = fun state -> CCList.mem ~eq:s_eq state automata.final in
     CCList.exists accepting terminal_states
 
 (* to negate automata, we must first be able to complete it *)
@@ -195,6 +195,6 @@ and format_local (g : ('s, 'w Symbol.t) Graph.t) sf lf f : 's -> unit = fun stat
 let prune ?(s_eq = (=)) : ('s, 'w) t -> ('s, 'w) t = fun automata -> 
   let reachable = Graph.reachable ~v_eq:s_eq [automata.start] automata.delta in {
     automata with 
-      states = CCList.filter (fun state -> CCList.mem s_eq state reachable) automata.states;
-      final = CCList.filter (fun state -> CCList.mem s_eq state reachable) automata.final;
+      states = CCList.filter (fun state -> CCList.mem ~eq:s_eq state reachable) automata.states;
+      final = CCList.filter (fun state -> CCList.mem ~eq:s_eq state reachable) automata.final;
   }

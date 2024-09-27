@@ -36,11 +36,11 @@ type t = axiom list
 let rec extract_variables : AST.expr -> (AST.id * Synth.Symbol.t) list = function
   | AST.Literal _ -> []
   | AST.Identifier i -> begin match i with
-      | AST.Var n -> [(i, NameMap.get n symbols |> CCOpt.get_exn)]
+      | AST.Var n -> [(i, NameMap.get n symbols |> CCOption.get_exn_or "")]
       | _ -> raise (Invalid_argument "Can't use indexed variables in these rules")
     end
   | AST.FunCall (_, args) ->
-    CCList.uniq (=) (CCList.flat_map extract_variables args)
+    CCList.uniq ~eq:(=) (CCList.flat_map extract_variables args)
 
 (* we will easily make axioms from strings - just hijacking some functions from synth *)
 let axiom_of_string : string -> axiom = fun s ->

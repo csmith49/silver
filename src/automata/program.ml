@@ -158,9 +158,9 @@ let rec graph_of_ast (ast : AST.t) (n : State.t) : State.t * graph = match ast w
     let fresh_n = fresh_n 
       |> State.set_tag (`Branch (fresh_n.State.id, b)) in
     let (ln, lg) = graph_of_ast l n 
-      |> CCPair.map1 (State.set_tag (`Assumption (fresh_n.id, b, true))) in
+      |> CCPair.map_fst (State.set_tag (`Assumption (fresh_n.id, b, true))) in
     let (rn, rg) = graph_of_ast r n 
-      |> CCPair.map1 (State.set_tag (`Assumption (fresh_n.id, b, false))) in
+      |> CCPair.map_fst (State.set_tag (`Assumption (fresh_n.id, b, false))) in
     let true_edge = Label.Assume b in
     let false_edge = Label.Assume (AST.FunCall (Name.of_string "not", [b])) in
     let delta = (fun s ->
@@ -194,7 +194,7 @@ let of_ast : AST.t -> t = fun ast ->
   let (start, delta) = graph_of_ast ast final in
   {
     DFA.states = 
-      CCList.sort_uniq Pervasives.compare (Graph.reachable ~v_eq:State.eq [start] delta);
+      CCList.sort_uniq ~cmp:Stdlib.compare (Graph.reachable ~v_eq:State.eq [start] delta);
     start = start;
     delta = Graph.map_edge DFA.Alphabet.lift delta;
     final = [final];

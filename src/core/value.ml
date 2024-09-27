@@ -34,11 +34,11 @@ let to_bool : t -> bool = fun x -> match x with
 
 let of_num : Number.t -> t = fun n -> Number n
 
-let of_rational : Rational.t -> t = fun q -> Number (Rational.to_float q)
+let of_rational : Q.t -> t = fun q -> Number (Q.to_float q)
 
 let of_bool : bool -> t = fun n -> Boolean n
 
-let of_int : int -> t = fun i -> Number (float_of_int i)
+let of_int : Z.t -> t = fun i -> Number (Z.to_float i)
 
 
 (* alias for the following modules *)
@@ -46,7 +46,7 @@ type t_alias = t
 
 (* for representing uninterpreted functions and indexed variables *)
 module FiniteMap = struct
-  module ValueMap = CCMap.Make(struct type t = t_alias list let compare = Pervasives.compare end)
+  module ValueMap = CCMap.Make(struct type t = t_alias list let compare = Stdlib.compare end)
 
   type t = t_alias ValueMap.t
 

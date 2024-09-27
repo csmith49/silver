@@ -1,5 +1,5 @@
 (* some simple static analyses to learn stuff about the ast *)
-open CCOpt.Infix
+open CCOption.Infix
 open Name.Infix
 
 module S = Types.Sub
@@ -124,7 +124,7 @@ let rec variables : A.t -> Name.t list = function
 let input_variables : A.t -> Name.t list = fun ast ->
   let modified = modified_variables ast in
   let untouched = CCList.filter (fun n -> not (List.mem n modified)) (variables ast) in
-    CCList.sort_uniq (Name.compare) untouched
+    CCList.sort_uniq ~cmp:(Name.compare) untouched
 
 (* combining constraints over an entire program *)
 let rec global_constraints : A.t -> C.t = function
@@ -159,9 +159,9 @@ let global_context : A.program -> E.t option = fun prog ->
     >>= (fun sub ->
       CCList.fold_left (fun e -> fun v ->
         let t = S.get (v <+ "type") sub in
-          CCOpt.map2 (E.update v) t e)
+          CCOption.map2 (E.update v) t e)
       (Some E.empty)
-      (CCList.sort_uniq Name.compare vars)
+      (CCList.sort_uniq ~cmp:Name.compare vars)
     )
 
 (* for expressions only *)
@@ -172,7 +172,7 @@ let expression_context : A.expr -> E.t option = fun ex -> ex
   >>= (fun sub ->
     CCList.fold_left (fun e -> fun v ->
       let t = S.get (v <+ "type") sub in
-        CCOpt.map2 (E.update v) t e)
+        CCOption.map2 (E.update v) t e)
     (Some E.empty)
-    (CCList.sort_uniq Name.compare (vars_in_expr ex))
+    (CCList.sort_uniq ~cmp:Name.compare (vars_in_expr ex))
   )

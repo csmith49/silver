@@ -58,7 +58,7 @@ let rec extract_symbols ?(prefix=Name.of_string "") :
       let args', ss = args
         |> CCList.map2 (fun i -> fun a -> extract_symbols ~prefix:(Name.extend_by_int prefix i) a) range
         |> CCList.split
-        |> CCPair.map2 CCList.flatten
+        |> CCPair.map_snd CCList.flatten
       in (AST.FunCall (f, args'), ss)
 
 let pattern_of_pair : Symbol.t * AST.expr -> pattern = fun (s, e) ->

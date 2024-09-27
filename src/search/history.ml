@@ -63,13 +63,13 @@ let add (h : Heuristic.t) (history : t) (b : branch) : t =
 
 (* jsut a view to the top *)
 let current : t -> branch option = fun h -> 
-  Frontier.find_min h |> CCOpt.map Node.to_branch
+  Frontier.find_min h |> CCOption.map Node.to_branch
 
 (* pops the top element off, returns the resulting heap in addition *)
 let pop : t -> (branch * t) option = fun h ->
   Frontier.take h
-    |> CCOpt.map CCPair.swap
-    |> CCOpt.map (CCPair.map1 Node.to_branch)
+    |> CCOption.map CCPair.swap
+    |> CCOption.map (CCPair.map_fst Node.to_branch)
 
 (* we'll extend branches during our search - this module defines the interface *)
 module Extend = struct

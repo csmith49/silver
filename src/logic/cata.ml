@@ -15,8 +15,8 @@ let rec evaluate (model : Value.Model.t) : AST.expr -> Value.t = function
         end
       | AST.IndexedVar (n, i) ->
         let index = evaluate model i in
-        let map = Value.Model.get n model |> CCOpt.get_exn |> Value.Model.to_map in
-          Value.FiniteMap.get [index] map |> CCOpt.get_exn
+        let map = Value.Model.get n model |> (CCOption.get_exn_or "") |> Value.Model.to_map in
+          Value.FiniteMap.get [index] map |> (CCOption.get_exn_or "")
     end
   (* the case for quantifiers *)
   | AST.FunCall (f, args) when Operation.is_quantifier f ->
@@ -49,9 +49,7 @@ let rec encode (c : Types.Environment.t) : AST.expr -> S.Expr.t = function
       | None -> Operation.mk_op f (CCList.length args) in
     op.Operation.solver_encoding (CCList.map (encode c) args)
 and encode_literal : AST.lit -> S.Expr.t = function
-  | AST.Rational q -> begin match q with
-      | Rational.Q (n, d) -> S.Expr.rational n d
-    end
+  | AST.Rational q -> S.Expr.rational (Q.num q) (Q.den q)
   | AST.Boolean b -> S.Expr.bool b
   | AST.Integer i -> S.Expr.int i
 and encode_identifier (c : Types.Environment.t) : AST.id -> S.Expr.t = function

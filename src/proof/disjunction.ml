@@ -71,7 +71,7 @@ let states : t -> State.t list = fun dis -> dis.paths
   |> CCList.map Abstraction.State.of_program_state
 
 let eq : t -> t -> bool = fun l -> fun r ->
-  (CCList.sort Pervasives.compare l.paths) = (CCList.sort Pervasives.compare r.paths)
+  (CCList.sort Stdlib.compare l.paths) = (CCList.sort Stdlib.compare r.paths)
 
 (* to check, we must convert paths to traces - but traces use Program.State! *)
 let rec path_to_program_path : path -> Program.path = function
@@ -86,7 +86,7 @@ let of_list (edge : Edge.t) (paths : abs_path list) : t option =
   (* check to see if we lost any *)
   if (CCList.length paths) = (CCList.length concrete_paths) then
     let traces = concrete_paths
-      |> CCList.sort Pervasives.compare
+      |> CCList.sort Stdlib.compare
       |> CCList.map path_to_program_path
       |> CCList.map (Trace.of_path edge.Edge.variables) in
     let right = Edge.of_traces ~offset:(edge.Edge.index) traces in Some {
@@ -124,7 +124,7 @@ let encode (pre : AST.annotation) (dis : t) (post : AST.annotation) : Constraint
   let left_env = Edge.environment dis.left in
   let right_env = Edge.environment dis.right in
   let frames = dis.paths
-    |> CCList.map (fun t -> Trace.environment t |> CCOpt.get_exn)
+    |> CCList.map (fun t -> Trace.environment t |> CCOption.get_exn_or "")
     |> CCList.map (Edge.frame_formula dis.right) in
   (* check if _all_ paths in dis can be made simple *)
   if CCList.for_all (Trace.can_simplify ~index:index left_env pre) dis.paths then
@@ -151,7 +151,7 @@ let encode_with_cost
     let left_env = Edge.environment dis.left in
     let right_env = Edge.environment dis.right in
     let frames = dis.paths
-      |> CCList.map (fun t -> Trace.environment t |> CCOpt.get_exn)
+      |> CCList.map (fun t -> Trace.environment t |> CCOption.get_exn_or "")
       |> CCList.map (Edge.frame_formula dis.right) in
     (* check if _all_ paths in dis can be made simple *)
     if CCList.for_all (Trace.can_simplify ~index:index left_env pre) dis.paths then

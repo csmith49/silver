@@ -96,7 +96,7 @@ module Variable = struct
       end
     | AST.FunCall (f, args) ->
       if Operation.is_quantifier f then match args with
-        | [AST.Identifier i; e] -> CCList.remove (=) i (variables_in_expr e)
+        | [AST.Identifier i; e] -> CCList.remove ~eq:(=) ~key:i (variables_in_expr e)
         | _ -> []
       else CCList.flat_map variables_in_expr args
 

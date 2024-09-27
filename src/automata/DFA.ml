@@ -49,15 +49,15 @@ module Alphabet = struct
     | Star, _ -> right
     | _, Star -> left
     | Set ls, Set rs ->
-      let basis = ls |> CCList.filter (fun l -> CCList.mem a_eq l rs) in
+      let basis = ls |> CCList.filter (fun l -> CCList.mem ~eq:a_eq l rs) in
       of_list basis
     | Set _, Complement Star -> empty
     | Complement Star, Set _ -> empty
     | Set ls, Complement (Set rs) ->
-      let basis = ls |> CCList.filter (fun l -> not (CCList.mem a_eq l rs)) in
+      let basis = ls |> CCList.filter (fun l -> not (CCList.mem ~eq:a_eq l rs)) in
       of_list basis
     | Complement (Set ls), Set rs ->
-      let basis = rs |> CCList.filter (fun r -> not (CCList.mem a_eq r ls)) in
+      let basis = rs |> CCList.filter (fun r -> not (CCList.mem ~eq:a_eq r ls)) in
       of_list basis
     | Complement (Set ls), Complement (Set rs) ->
       Complement (Set (ls @ rs))
@@ -81,7 +81,7 @@ module Alphabet = struct
   let rec eq ?(a_eq = (=)) (left : 'a t) (right : 'a t) : bool = match left, right with
     | Star, Star -> true
     | Complement l, Complement r -> eq ~a_eq:a_eq l r
-    | Set ls, Set rs -> CCList.for_all (fun l -> CCList.mem a_eq l rs) ls
+    | Set ls, Set rs -> CCList.for_all (fun l -> CCList.mem ~eq:a_eq l rs) ls
     | _ -> false
 end
 
@@ -112,7 +112,7 @@ let find ?(s_eq = (=)) (dfa : ('s, 'a) t) : ('s, 'a) path option =
   Graph.bfs ~v_eq:s_eq [dfa.start] dfa.final dfa.delta
 
 let find_concrete ?(s_eq = (=)) (dfa : ('s, 'a) t) : ('s, 'a) concrete_path option =
-  CCOpt.Infix.(find ~s_eq:s_eq dfa >>= concretize)
+  CCOption.Infix.(find ~s_eq:s_eq dfa >>= concretize)
 
 (* we can convert a partial transition relation to a total one *)
 let complete ?(s_eq = (=)) ?(a_eq = (=)) (dump : 's) (dfa : ('s, 'a) t) : ('s, 'a) t =
@@ -131,7 +131,7 @@ let complete ?(s_eq = (=)) ?(a_eq = (=)) (dump : 's) (dfa : ('s, 'a) t) : ('s, '
 
 (* negating a dfa only works if it has been completed - we don't enforce this with type safety *)
 let negate ?(s_eq = (=)) (dfa : ('s, 'a) t) : ('s, 'a) t = {
-  dfa with final = dfa.states |> CCList.filter (fun s -> not (CCList.mem s_eq s dfa.final));
+  dfa with final = dfa.states |> CCList.filter (fun s -> not (CCList.mem ~eq:s_eq s dfa.final));
 }
 
 (* a utility function for combining lists *)
@@ -160,10 +160,10 @@ let prune ?(s_eq = (=)) (dfa : ('s, 'a) t) : ('s, 'a) t =
   let reachable = Graph.reachable ~v_eq:s_eq [dfa.start] dfa.delta in
   { dfa with
     states = dfa.states 
-      |> CCList.filter (fun s -> CCList.mem s_eq s reachable)
+      |> CCList.filter (fun s -> CCList.mem ~eq:s_eq s reachable)
       |> CCList.uniq ~eq:s_eq;
     final = dfa.final 
-      |> CCList.filter (fun s -> CCList.mem s_eq s reachable)
+      |> CCList.filter (fun s -> CCList.mem ~eq:s_eq s reachable)
       |> CCList.uniq ~eq:s_eq;
   }
 

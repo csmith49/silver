@@ -45,7 +45,7 @@ let to_tuple : t -> (string * int * int) = fun n ->
   (n.id, n.hash, n.counter)
 
 (* comparison is done polymorphically - no natural order to induce anyways *)
-let compare (left : t) (right : t) = Pervasives.compare (to_tuple left) (to_tuple right)
+let compare (left : t) (right : t) = Stdlib.compare (to_tuple left) (to_tuple right)
 
 let eq = fun l -> fun r -> 0 = (compare l r)
 

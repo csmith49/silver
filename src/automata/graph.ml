@@ -73,7 +73,7 @@ let step (v : 'v) (g : ('v, 'e) t) : ('v, 'e) Path.step list =
 
 let extend (path : ('v, 'e) Path.t) (g : ('v, 'e) t) : ('v, 'e) Path.t list = path
   |> Path.to_states |> CCList.last_opt (* get the last state *)
-  |> CCOpt.map (fun v -> step v g) |> CCOpt.to_list |> CCList.flatten (* turn to list of steps *)
+  |> CCOption.map (fun v -> step v g) |> CCOption.to_list |> CCList.flatten (* turn to list of steps *)
   |> CCList.map (Path.extend path) (* and extend *)
 
 (* compute the first path (if one exists) from source to dest *)
@@ -83,7 +83,7 @@ let bfs ?(v_eq = (=)) (source : 'v list) (dest : 'v list) (g : ('v, 'e) t) : ('v
     (* find if anything is currently reaching the destination *)
     let reaches_dest = fun path -> path
       |> Path.to_states |> CCList.last_opt 
-      |> CCOpt.exists (fun v -> CCList.mem v_eq v dest) in
+      |> CCOption.exists (fun v -> CCList.mem ~eq:v_eq v dest) in
     match CCList.find_opt reaches_dest paths with
       | Some path -> Some path
       | None ->
@@ -104,7 +104,7 @@ let bfs_list ?(v_eq = (=)) (source : 'v list) (dest : 'v list) (g : ('v, 'e) t) 
     (* we need to check if paths have reached the destination *)
     let reaches_dest = fun path -> path
       |> Path.to_states |> CCList.last_opt
-      |> CCOpt.exists (fun v -> CCList.mem v_eq v dest) in
+      |> CCOption.exists (fun v -> CCList.mem ~eq:v_eq v dest) in
     (* split the paths into those reaching the destination and those that need to be extended *)
     let finished, ongoing = CCList.partition reaches_dest paths in
     (* extend ongoing and filter out paths with loops *)
@@ -123,7 +123,7 @@ let rec reachable ?(v_eq = (=)) (source : 'v list) (g : ('v, 'e) t) : 'v list =
     |> CCList.flat_map (fun v -> step v g)
     |> CCList.map (fun (_, _, dest) -> dest) in
   let unseen_states = 
-    CCList.filter (fun v -> not (CCList.mem v_eq v source)) step_reachable in
+    CCList.filter (fun v -> not (CCList.mem ~eq:v_eq v source)) step_reachable in
   if CCList.is_empty unseen_states then source else reachable (source @ unseen_states) g
 
 (* to help divine the og structure, maps need inverses *)
@@ -167,13 +167,13 @@ let pinch ?(v_eq = (=)) (states : 'v list) (g : ('v, 'e) t) : ('v, 'e) t = match
 let overlay ?(v_eq = (=)) ?(e_eq = (=)) (g : ('v, 'e) t) (h : ('v, 'e) t) : ('v, 'e) t = fun v ->
   let eq (el, nl) (er, nr) = (v_eq nl nr) = (e_eq el er) in
   let h_edges = v |> h in
-  let g_edges = v |> g |> CCList.filter (fun e -> not (CCList.mem eq e h_edges)) in
+  let g_edges = v |> g |> CCList.filter (fun e -> not (CCList.mem ~eq:eq e h_edges)) in
     h_edges @ g_edges
 
 (* mapping edges is sooooo much easier than states - no inverse needed *)
 let map_edge (f : 'e -> 'f) (g : ('v, 'e) t) : ('v, 'f) t = fun n -> n
   |> g
-  |> CCList.map (CCPair.map1 f)
+  |> CCList.map (CCPair.map_fst f)
 
 (* we should be able to tell when a loop exists between two sets of states *)
 let loop_free ?(v_eq = (=)) (source : 'v list) (dest : 'v list) : ('v, 'e) t -> bool = fun g ->
@@ -184,7 +184,7 @@ let loop_free ?(v_eq = (=)) (source : 'v list) (dest : 'v list) : ('v, 'e) t -> 
     (* see what we can drop *)
     let reaches_dest = fun path -> path
       |> Path.to_states |> CCList.last_opt
-      |> CCOpt.exists (fun v -> CCList.mem v_eq v dest) in
+      |> CCOption.exists (fun v -> CCList.mem ~eq:v_eq v dest) in
     (* filter out paths reaching the state and extend *)
     let ongoing = paths
       |> CCList.filter reaches_dest

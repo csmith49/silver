@@ -179,7 +179,7 @@ type answer =
 
 let covers ?(verbose=false) (p : Program.t) (abs : t) : answer =
   let _ = if verbose then CCFormat.printf "@[[COVERING] Generating complement...@]@;" else () in
-  let comp = complement abs |> CCOpt.map (DFA.prune ~s_eq:Conjunction.eq) in
+  let comp = complement abs |> CCOption.map (DFA.prune ~s_eq:Conjunction.eq) in
   match comp with
     | Some conjunct ->
       let _ = if verbose then 
@@ -227,7 +227,7 @@ let of_path : Program.path -> proof = fun path ->
     DFA.states = states;
     start = CCList.hd states;
     delta = Graph.map_edge DFA.Alphabet.lift (Graph.of_path ~v_eq:State.eq path);
-    final = [states |> CCList.last_opt |> CCOpt.get_exn];
+    final = [states |> CCList.last_opt |> CCOption.get_exn_or ""];
   } in
   let cost = path |> Graph.Path.to_word
     |> CCList.filter_map (fun w -> match w with

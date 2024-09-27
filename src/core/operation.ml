@@ -16,7 +16,7 @@ let to_tuple : t -> (Name.t * string * Types.t) = fun op ->
   (op.name, op.symbol, op.signature)
 
 let compare (left : t) (right : t) : int =
-  Pervasives.compare (to_tuple left) (to_tuple right)
+  Stdlib.compare (to_tuple left) (to_tuple right)
 
 let equivalent (left : t) (right : t) : bool =
   (compare left right) = 0
@@ -116,7 +116,7 @@ module Defaults = struct
       S.Expr.ite 
         (S.Expr.geq 
           v
-          (S.Expr.rational 0 1)
+          (S.Expr.rational (Z.zero) (Z.one))
         )
         v
         (S.Expr.negative v));
@@ -151,7 +151,7 @@ module Defaults = struct
     value_encoding = lift_unary (fun v -> 
       Value.of_num ((Value.to_num v) +. 1.0));
     solver_encoding = lift_unary (fun v ->
-      S.Expr.plus v (S.Expr.int 1));
+      S.Expr.plus v (S.Expr.int Z.one));
   }
   let plus = {
     name = Name.of_string "plus";
@@ -386,4 +386,4 @@ let find_op (n : Name.t) : t option =
 
 (* check if a name corresponds to a quantifier *)
 let is_quantifier : Name.t -> bool = 
-  fun n -> CCList.mem (=) n (CCList.map (fun o -> o.name) Defaults.quantifiers)
+  fun n -> CCList.mem ~eq:(=) n (CCList.map (fun o -> o.name) Defaults.quantifiers)

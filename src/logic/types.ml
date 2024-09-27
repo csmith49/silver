@@ -1,4 +1,4 @@
-open CCOpt.Infix
+open CCOption.Infix
 
 (* very simply, we only have a few base types and indexed types *)
 (* but for the full type inference, we need to reason about functions as well *)
@@ -172,7 +172,7 @@ module Environment = struct
   let to_string  (env : t) : string = 
     let env' = env
       |> live_variables
-      |> CCList.map (fun x -> (x, get_type x env |> CCOpt.get_exn))
+      |> CCList.map (fun x -> (x, get_type x env |> CCOption.get_exn_or ""))
       |> CCList.map (fun (k, v) -> (Name.to_string k) ^ " : " ^ (to_string v))
       |> CCString.concat ", "
     in "[" ^ env' ^ "]"
@@ -236,6 +236,6 @@ module Constraint = struct
       (* let _ = print_endline (Sub.to_string s) in *)
       let l' = Sub.apply s l in
       let r' = Sub.apply s r in
-        CCOpt.map Sub.simplify @@ Sub.merge_opt (unify l' r') (Some s)
+        CCOption.map Sub.simplify @@ Sub.merge_opt (unify l' r') (Some s)
     | None -> None
 end

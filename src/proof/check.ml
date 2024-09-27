@@ -32,7 +32,7 @@ module Answer = struct
       |> CCList.map Abstraction.of_path in
     if not (CCList.is_empty proofs) then (Correct proofs) 
     (* if there are any unknown results, then our answer is unknown *)
-    else if CCList.exists (CCPair.map_snd Constraint.Answer.is_unknown) answers 
+    else if CCList.exists (CCPair.snd_map Constraint.Answer.is_unknown) answers 
       then Unknown
       else Incorrect
 end

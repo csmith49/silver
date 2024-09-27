@@ -1,4 +1,4 @@
-ocb_flags = -r -use-ocamlfind -pkgs 'containers, MenhirLib, containers.data, Z3'
+ocb_flags = -r -use-ocamlfind -pkgs 'containers, zarith, MenhirLib, Z3' -tag thread
 ocb = ocamlbuild $(ocb_flags)
 
 .phony: all

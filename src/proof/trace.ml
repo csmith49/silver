@@ -49,7 +49,7 @@ end
 (* extracts the last environment in the trace *)
 let environment : t -> Types.Environment.t option = fun trace -> trace 
   |> CCList.last_opt
-  |> CCOpt.map (fun s -> s.variables)
+  |> CCOption.map (fun s -> s.variables)
 
 (* for printing nicely *)
 let format_path = Graph.Path.format State.format Label.format
@@ -335,7 +335,7 @@ let can_simplify ?(index=0) (env : Types.Environment.t) (pre : AST.annotation) (
 let encode (env : Types.Environment.t)
   (pre : AST.annotation) (trace : t) (post : AST.annotation) (cost : AST.cost) : Constraint.conjunction = 
     let pre_env = trace |> CCList.hd |> fun s -> s.variables in
-    let post_env = trace |> CCList.last_opt |> CCOpt.get_exn |> fun s -> s.variables in
+    let post_env = trace |> CCList.last_opt |> CCOption.get_exn_or "" |> fun s -> s.variables in
     let length = CCList.length trace in
     if can_simplify pre_env pre trace then
       let pre = Encode.simple_pre pre_env pre in
@@ -359,7 +359,7 @@ let rec vars_in_scope : Strategy.t = Strategy.S (
     let env = s.variables in
     let terms = expr
       |> Theory.extract_terms env
-      |> Theory.G.get (Theory.symbol_from_type (Types.Base Types.Rational)|> CCOpt.get_exn) in
+      |> Theory.G.get (Theory.symbol_from_type (Types.Base Types.Rational)|> CCOption.get_exn_or "") in
     (terms, vars_in_scope)
 )
 

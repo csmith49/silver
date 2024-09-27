@@ -9,7 +9,7 @@ let _ = Global.get_args ();
 let program = Parse.parse !Global.filename in
 let pre, ast, post, cost = program in
 let _ = printf "PARSED@." in 
-let env = Static.global_context program |> CCOpt.get_exn in
+let env = Static.global_context program |> (CCOption.get_exn_or "") in
 let automata = Program.of_ast ast in
 
 (* minor summary info *)
@@ -45,7 +45,7 @@ while (not !finished) do
       (* STEP 1: Check to see if our abstraction covers the program automata *)
       begin
         (* pop the old branch off the history *)
-        history := History.pop !history |> CCOpt.get_exn |> snd;
+        history := History.pop !history |> (CCOption.get_exn_or "") |> snd;
         (* handle adding *)
         begin match Abstraction.covers ~verbose:(Global.show_intermediate_automata ()) automata abstraction with
           (* CASE 1.1: The automata is covered. The abstraction serves as a proof that p is correct *)
