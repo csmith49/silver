@@ -1,8 +1,12 @@
+%{
+open Core
+%}
+
 /* tokens that actually carry some payload */
 /* %token <Rational.t> RATIONAL */
 %token <int> INT
 %token <bool> BOOL
-%token <Name.t> NAME
+%token <Core.Name.t> NAME
 
 /* end of input token */
 %token EOI
@@ -144,14 +148,7 @@ quantified_expression:
     PERIOD; e = expression 
       { AST.FunCall (Name.of_string "forall", [AST.Identifier (AST.Var i); l; u; e]) }
   | e = expression { e }
-  /* | q = quantifier; i = NAME; PERIOD; e = expression { match q with
-    | AST.Exists -> AST.FunCall (Name.of_string "exists", [AST.Identifier (AST.Var i); e])
-    | AST.ForAll -> AST.FunCall (Name.of_string "forall", [AST.Identifier (AST.Var i); e])}
-  | e = expression { e }
 
-%inline quantifier:
-  | EXISTS { AST.Exists }
-  | FORALL { AST.ForAll } */
 
 /* extension 2: syntax for explicit costs */
 cost:

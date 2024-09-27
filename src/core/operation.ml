@@ -343,7 +343,7 @@ module Defaults = struct
     name = Name.of_string "bern";
     symbol = "bern";
     signature = f [rational] boolean;
-    value_encoding = lift_unary (fun x -> Value.Boolean true);
+    value_encoding = lift_unary (fun _ -> Value.Boolean true);
     solver_encoding =
       let uif = S.F.mk "bern" [S.Sort.rational] S.Sort.boolean in
         fun xs -> S.F.apply uif xs;
@@ -376,7 +376,7 @@ let mk_op (f : Name.t) (n : int) : t =
     signature = Types.Function (CCList.map mk_var range, mk_var 0);
     value_encoding = lift_unary (fun _ -> 
       raise (Encoding_error ("cannot evaluate unknown function: " ^ (Name.to_string f))));
-    solver_encoding = fun xs -> 
+    solver_encoding = fun _ -> 
     raise (Encoding_error ("cannot encode unknown function: " ^ (Name.to_string f)));
   }
 

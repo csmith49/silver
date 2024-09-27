@@ -119,7 +119,7 @@ module Environment = struct
     let increment: Name.t -> t -> t = fun n -> fun c ->
       let curr = get n c in NameMap.add (Name.reset_counter n) (curr + 1) c
   
-    let max : t -> t -> t = NameMap.union (fun k -> fun l -> fun r -> Some (max l r))
+    let max : t -> t -> t = NameMap.union (fun _ -> fun l -> fun r -> Some (max l r))
   end
 
   type t = {

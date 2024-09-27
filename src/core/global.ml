@@ -11,10 +11,10 @@ let args = [
   ("-a", Arg.Set show_auto, " Enables automata output");
   ("-p", Arg.Set pause, " Enables halting after each iteration");
 ];;
-let anon_fun = fun x -> ();;
+
 let usage_msg = "tbd";;
 
-let get_args () = Arg.parse args anon_fun usage_msg;;
+let get_args () = Arg.parse args (fun _ -> ()) usage_msg;;
 
 (* from the verbosity level, construct the verbose flags we'll actually use *)
 let show_branching : unit -> bool = fun () -> !verbose >= 1;;

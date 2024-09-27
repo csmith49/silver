@@ -66,5 +66,5 @@ rule read = parse
   | eof {EOI}
   | "true" {BOOL (bool_of_string (Lexing.lexeme lexbuf))}
   | "false" {BOOL (bool_of_string (Lexing.lexeme lexbuf))}
-  | id {NAME (Name.of_string (Lexing.lexeme lexbuf))}
+  | id {NAME (Core.Name.of_string (Lexing.lexeme lexbuf))}
   | int {INT (int_of_string (Lexing.lexeme lexbuf))}
