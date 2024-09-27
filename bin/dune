@@ -1,3 +1,4 @@
 (executable
  (name silver)
+ (public_name silver)
  (libraries silver containers))
