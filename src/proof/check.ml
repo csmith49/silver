@@ -1,3 +1,7 @@
+open Core
+open Logic
+open Automata
+
 module S = SMT.Default
 
 open CCFormat
@@ -26,7 +30,7 @@ module Answer = struct
   let of_answers : (Trace.t * Constraint.Answer.t) list -> t = fun answers ->
     (* if there are any unsat answers, it's correct *)
     let proofs = answers
-      |> CCList.filter (fun (tr, answer) -> Constraint.Answer.is_unsat answer)
+      |> CCList.filter (fun (_tr, answer) -> Constraint.Answer.is_unsat answer)
       |> CCList.map fst
       |> CCList.map Trace.to_path
       |> CCList.map Abstraction.of_path in

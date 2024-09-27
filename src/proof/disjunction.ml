@@ -1,3 +1,7 @@
+open Core
+open Automata
+open Logic
+
 (* we operate over proofs from automata/abstraction.ml *)
 module State = Abstraction.State
 module Label = Abstraction.Label

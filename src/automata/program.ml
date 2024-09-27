@@ -1,4 +1,5 @@
 (* the machinery necessary for representing program automata *)
+open Core
 open Name.Infix
 
 (* edges maintain the operation performed while moving from state to state *)
@@ -37,7 +38,7 @@ module Label = struct
     | Draw _, Concrete c ->
       let c' = Draw (c.variable, c.expression) in
       eq left c'
-    | Concrete c, Draw (i, e) ->
+    | Concrete c, Draw (_, __POS_OF__) ->
       let c' = Draw (c.variable, c.expression) in
       eq c' right
     | _ -> left = right
@@ -56,7 +57,7 @@ module Tag = struct
     | `Loop l, `Loop r -> Name.eq l r
     | `Branch (ln, le), `Branch (rn, re) -> 
       (Name.eq ln rn) && (AST.eq le re)
-    | `Assumption (ln, le, lb), `Assumption (rn, re, rb) -> 
+    | `Assumption (ln, le, _), `Assumption (rn, re, _) -> 
       (AST.eq le re) && (le = re) && (Name.eq ln rn)
     | _ -> false
 
@@ -191,11 +192,11 @@ let rec graph_of_ast (ast : AST.t) (n : State.t) : State.t * graph = match ast w
 (* using the graph construction, we can now build up the program automata *)
 let of_ast : AST.t -> t = fun ast -> 
   let final = State.of_string "finish" in
-  let (start, delta) = graph_of_ast ast final in
+  let (start', delta') = graph_of_ast ast final in
   {
     DFA.states = 
-      CCList.sort_uniq ~cmp:Stdlib.compare (Graph.reachable ~v_eq:State.eq [start] delta);
-    start = start;
-    delta = Graph.map_edge DFA.Alphabet.lift delta;
+      CCList.sort_uniq ~cmp:Stdlib.compare (Graph.reachable ~v_eq:State.eq [start'] delta');
+    start = start';
+    delta = Graph.map_edge DFA.Alphabet.lift delta';
     final = [final];
   }

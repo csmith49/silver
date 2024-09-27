@@ -1,3 +1,5 @@
+open Core
+
 (* edges are the same language as program automata *)
 module Label = Program.Label
 

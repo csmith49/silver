@@ -1,3 +1,9 @@
+module Program = Program
+module Abstraction = Abstraction
+module Cost = Cost
+module DFA = DFA
+module Graph = Graph
+
 (* we have an infinite symbol set, so to complete our dfas we need more symbolic labels *)
 module Symbol = struct
   (* we construct the powerset lattice over symbols *)
@@ -17,7 +23,7 @@ module Symbol = struct
 
   (* assume left is a singleton - is it in the set described by right? *)
   let left_contains ?(s_eq = (=)) (left : 'a t) (right : 'a t) : bool = match left, right with
-    | Singleton l, Star -> true
+    | Singleton _, Star -> true
     | Singleton l, Singleton r -> s_eq l r
     | Singleton l, Complement rs -> not (CCList.mem ~eq:s_eq l rs)
     | _ -> false
@@ -145,7 +151,7 @@ let complete_state ?(s_eq = (=))
       (positive_graph ~s_eq:s_eq state automata dump)
       (negative_graph ~s_eq:s_eq state automata dump)
 
-let complete ?(s_eq = (=)) ?(l_eq = (=)) (automata : ('s, 'w) t) (dump : 's) : ('s, 'w) t = 
+let complete ?(s_eq = (=)) (automata : ('s, 'w) t) (dump : 's) : ('s, 'w) t = 
   let add_dump = Graph.of_edge ~v_eq:s_eq (dump, Symbol.Star, dump) in
   let complete = automata.states
     |> CCList.map (fun s -> complete_state ~s_eq:s_eq s automata dump)
@@ -159,7 +165,7 @@ let complete ?(s_eq = (=)) ?(l_eq = (=)) (automata : ('s, 'w) t) (dump : 's) : (
 
 (* negate an automata *)
 let negate ?(s_eq = (=)) (automata : ('s, 'w) t) : ('s, 'w) t =
-  let not_final = fun state -> not (CCList.mem s_eq state automata.final) in
+  let not_final = fun state -> not (CCList.mem ~eq:s_eq state automata.final) in
   { automata with final = CCList.filter not_final automata.states; }
 
 (* find a word in the language, if one exists *)

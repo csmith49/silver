@@ -1,3 +1,6 @@
+open Core
+open Synth
+
 (* probability axioms parameterized by an uninterpreted function (really just a var for our use case) *)
 type uif = AST.expr
 

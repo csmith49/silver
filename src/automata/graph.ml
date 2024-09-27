@@ -159,7 +159,7 @@ let merge_states ?(v_eq = (=)) (left : 'v) (right : 'v) (g : ('v, 'e) t) : ('v, 
 
 let pinch ?(v_eq = (=)) (states : 'v list) (g : ('v, 'e) t) : ('v, 'e) t = match states with
   | [] -> g
-  | x :: [] -> g
+  | _ :: [] -> g
   | x :: xs ->
     CCList.fold_left (fun graph -> fun state -> merge_states ~v_eq:v_eq state x graph) g xs
 

@@ -1,3 +1,8 @@
+open Core
+open Synth
+open Logic
+open Automata
+
 (* we'll end up doing some direct manipulation of formulae *)
 module S = SMT.Default
 
@@ -123,9 +128,9 @@ module Strategy = struct
     S s -> s
 end
 
-let default = Strategy.S (fun env -> fun vars -> [])
+let default = Strategy.S (fun _env -> fun _vars -> [])
 
-let overly_specific = Strategy.S (fun env -> fun vars ->
+let overly_specific = Strategy.S (fun _env -> fun _vars ->
   let answer = Parse.parse_expr 
     "(i <= n) & 
     (i >= 0) & 

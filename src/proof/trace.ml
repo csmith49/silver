@@ -1,3 +1,7 @@
+open Core
+open Logic
+open Automata
+
 (* we'll be doing some ssa transformation as we go along *)
 module SSA = struct
   type t = Types.Environment.t
@@ -164,7 +168,7 @@ let axiomatize (strategy : Strategy.t) (axioms : Probability.axiom list) : t -> 
   | [] -> []
   | trace ->
     let concretized, _ =
-      CCList.fold_left (fun (axiomatized, strat) -> fun s -> 
+      CCList.fold_left (fun (axiomatized, _strat) -> fun s -> 
         let sl, strategy = axiomatize_step strategy axioms s in
         axiomatized @ [sl], strategy) ([], strategy) trace in
     concretized |> CCList.cartesian_product
@@ -172,7 +176,7 @@ let axiomatize (strategy : Strategy.t) (axioms : Probability.axiom list) : t -> 
 (* converting a step to a constraint is straightforward - enc_i *)
 let step_to_constraint (i : int) : step -> Constraint.t = fun s ->
   let env = Vars.extend i s.variables in
-  match s.step with (src, lbl, dest) -> let enc = match lbl with
+  match s.step with (_src, lbl, _dest) -> let enc = match lbl with
     (* x = e & w = wp & h = hp *)
     | Label.Assign (x, e) ->
       let x = AST.Identifier x in
@@ -209,7 +213,7 @@ let step_to_constraint (i : int) : step -> Constraint.t = fun s ->
 (* a simpler encoding which eschews halt variables - only works if the trace is feasible *)
 let simple_step_to_constraint (i : int) : step -> Constraint.t = fun s ->
   let env = Vars.extend i s.variables in
-  match s.step with (src, lbl, dest) -> let enc = match lbl with
+  match s.step with (_src, lbl, _dest) -> let enc = match lbl with
     (* x = e & w = wp *)
     | Label.Assign (x, e) ->
       let x = AST.Identifier x in
@@ -224,7 +228,7 @@ let simple_step_to_constraint (i : int) : step -> Constraint.t = fun s ->
         b
       ) |> Simplify.simplify
     (* w = wp *)
-    | Label.Draw (x, e) ->
+    | Label.Draw (_x, _e) ->
       AST.Infix.((Vars.w i) =@ (Vars.w (i - 1))) |> Simplify.simplify
     (* semantics & w = wp + cost *)
     | Label.Concrete c ->
@@ -328,11 +332,11 @@ end
 let can_simplify ?(index=0) (env : Types.Environment.t) (pre : AST.annotation) (trace : t) : bool =
   let pre_encoding = Encode.pre env pre :: (to_constraint ~index:index trace) in
   match Constraint.check pre_encoding with
-    | Constraint.Answer.Sat model -> true
+    | Constraint.Answer.Sat _ -> true
     | _ -> false
 
 (* if we can get away with a simple encoding, do so, otherwise don't *)
-let encode (env : Types.Environment.t)
+let encode (_env : Types.Environment.t)
   (pre : AST.annotation) (trace : t) (post : AST.annotation) (cost : AST.cost) : Constraint.conjunction = 
     let pre_env = trace |> CCList.hd |> fun s -> s.variables in
     let post_env = trace |> CCList.last_opt |> CCOption.get_exn_or "" |> fun s -> s.variables in
@@ -351,7 +355,7 @@ let encode (env : Types.Environment.t)
 (* a default strategy *)
 let rec vars_in_scope : Strategy.t = Strategy.S (
   fun s -> 
-    let expr = match s.step with (src, lbl, dest) -> match lbl with
+    let expr = match s.step with (_src, lbl, _dest) -> match lbl with
       | Label.Assign (_, e) -> e
       | Label.Assume b -> b
       | Label.Draw (_, e) -> e

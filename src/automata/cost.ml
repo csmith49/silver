@@ -1,3 +1,6 @@
+open Core
+open Logic
+
 (* these are just expressions, but we alias them for type safety elsewhere *)
 type t = AST.expr
 
