@@ -1,12 +1,18 @@
-(* we'll need this eventually, but this is just to make sure it's included in the build process for now *)
-open Interpolant
 open CCFormat
+
+open Core
+open Automata
+open Logic
+open Search
+open Proof
 
 (* get the cmd line args *)
 let _ = Global.get_args ();
 
 (* let's do some parsing *)
-let program = Parse.parse !Global.filename in
+let program = 
+  let source = CCIO.(with_in !Global.filename read_all) in
+  Parse.parse_program source in
 let pre, ast, post, cost = program in
 let _ = printf "PARSED@." in 
 let env = Static.global_context program |> (CCOption.get_exn_or "") in

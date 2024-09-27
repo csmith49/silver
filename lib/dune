@@ -1,0 +1,3 @@
+(library
+ (name silver)
+ (libraries automata core logic parse proof search synth))
