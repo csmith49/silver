@@ -5,7 +5,7 @@ open Automata
 module S = SMT.Default
 
 open CCFormat
-open AST.Infix
+
 
 type path = Trace.path
 type trace = Trace.t

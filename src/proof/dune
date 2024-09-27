@@ -1,4 +1,0 @@
-(library
-
-(name proof)
-(libraries core logic automata containers))

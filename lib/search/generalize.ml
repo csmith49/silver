@@ -1,3 +1,8 @@
+open Core
+open Automata
+open Proof
+open Logic
+
 module State = Abstraction.State
 type proof = Abstraction.proof
 type label = Program.Tag.t
@@ -56,7 +61,7 @@ let loop_states (label : label) (path : path) : (State.t * State.t) option = pat
 let to_problem
   (env : Types.Environment.t)
   (label : label)
-  (start : State.t) (final : State.t list)
+  (_start : State.t) (_final : State.t list)
   (proof : proof) : problem option =
     let edge = Disjunction.Edge.of_environment env in
     (* compute the fst and snd loop points for all paths *)
@@ -158,7 +163,6 @@ let check_interpolant
 let can_generalize
   ?(verbose=false)
   ?(theory=Theory.Defaults.all)
-  ?(strength=1)
   (strategy : Interpolant.Strategy.t)
   (env : Types.Environment.t)
   (pre : AST.annotation) (post : AST.annotation) (cost : AST.cost)

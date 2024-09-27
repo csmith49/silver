@@ -40,7 +40,7 @@ let format_short_step f = CCFormat.fprintf f "%a" (Graph.Path.format_short_step 
 (* traces are thus effectively annotated paths *)
 type t = step list
 
-let format = CCFormat.list ~sep:(CCFormat.return "@;") format_step
+(* let format = CCFormat.list ~sep:(CCFormat.return "@;") format_step *)
 
 (* this might look weird, but we have to parameterize our search by a strat and it needs state *)
 (* so instead it gives an answer and a new strategy to use *)

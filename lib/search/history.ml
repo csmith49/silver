@@ -1,3 +1,5 @@
+open Automata
+
 (* we store proofs *)
 type proof = Abstraction.proof
 
@@ -21,9 +23,9 @@ let default : branch = {
 
 (* branch summary just gives an intution as to how we arrived at the current abstraction *)
 let format_step f : step -> unit = function
-  | `Add p -> CCFormat.fprintf f "Add"
-  | `Merge (l, r, p) -> CCFormat.fprintf f "Merge(%d,%d)" l r
-  | `Generalize (i, p) -> CCFormat.fprintf f "Generalize(%d)" i
+  | `Add _p -> CCFormat.fprintf f "Add"
+  | `Merge (l, r, _p) -> CCFormat.fprintf f "Merge(%d,%d)" l r
+  | `Generalize (i, _p) -> CCFormat.fprintf f "Generalize(%d)" i
 let format_history f : step list -> unit = fun history ->
   CCFormat.fprintf f "@[<hv>%a@]" (CCFormat.list ~sep:(CCFormat.return ":@;") format_step) history
 let format_branch f : branch -> unit = fun b -> format_history f b.history

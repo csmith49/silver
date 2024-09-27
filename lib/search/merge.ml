@@ -1,3 +1,8 @@
+open Core
+open Automata
+open Logic
+open Proof
+
 module State = Abstraction.State
 type proof = Abstraction.proof
 
@@ -58,14 +63,14 @@ let to_problem
       let left_tag = left.Disjunction.paths
         |> CCList.map CCList.hd
         |> CCList.map (fun step -> step.Trace.step)
-        |> CCList.map (fun (src, lbl, dest) -> dest)
+        |> CCList.map (fun (_src, _lbl, dest) -> dest)
         |> CCList.map (fun state -> state.Trace.State.tags |> CCList.filter Program.Tag.is_assumption)
         |> intersect
         |> CCList.hd in
       let right_tag = right.Disjunction.paths
         |> CCList.map CCList.hd
         |> CCList.map (fun step -> step.Trace.step)
-        |> CCList.map (fun (src, lbl, dest) -> dest)
+        |> CCList.map (fun (_src, _lbl, dest) -> dest)
         |> CCList.map (fun state -> state.Trace.State.tags |> CCList.filter Program.Tag.is_assumption)
         |> intersect
         |> CCList.hd in
@@ -119,7 +124,7 @@ let can_merge
     let left_encoding = Disjunction.encode_with_cost middle_right left post cost in
     let right_encoding = Disjunction.encode_with_cost middle_right right post cost in
     let encoding = Constraint.Mk.(and_ prefix_encoding (or_ left_encoding right_encoding)) in
-    match Constraint.check_wrt_theory ~verbose:(Global.show_checking ()) env theory [encoding] with
+    match Constraint.check_wrt_theory ~verbose:(Global.show_checking () || verbose) env theory [encoding] with
       | Constraint.Answer.Unsat -> true
       | _ -> false
 
