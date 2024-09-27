@@ -1,3 +1,6 @@
+open Core
+open Synth
+
 module SymbolMap = CCMap.Make(Synth.Symbol)
 module NameMap = CCMap.Make(Name)
 

@@ -1,3 +1,6 @@
+open Core
+open Synth
+
 type template = Template of (AST.expr -> AST.expr option)
 
 let mk (pattern : string) (result : string) : template =

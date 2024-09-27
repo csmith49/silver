@@ -1,3 +1,7 @@
+open Core
+
+module Substitution = Substitution
+
 (* just wrapping Name for now, but I reserve the right to change this *)
 module Symbol = struct
   type t = Name.t

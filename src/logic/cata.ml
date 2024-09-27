@@ -1,3 +1,5 @@
+open Core
+
 exception Evaluation_error of string
 
 (* for casting some basic expressions to values *)
@@ -19,7 +21,7 @@ let rec evaluate (model : Value.Model.t) : AST.expr -> Value.t = function
           Value.FiniteMap.get [index] map |> (CCOption.get_exn_or "")
     end
   (* the case for quantifiers *)
-  | AST.FunCall (f, args) when Operation.is_quantifier f ->
+  | AST.FunCall (f, _) when Operation.is_quantifier f ->
     (* this needs to be fixed *)
     Value.Boolean true
   (* the case for any other function *)

@@ -1,3 +1,4 @@
+open Core
 module S = SMT.Default
 
 (* these conversion functions are crucial *)

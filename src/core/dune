@@ -1,4 +1,4 @@
 (library
  (name core)
- (modules AST Name Operation SMT Types Value)
+ (modules AST Name Operation SMT Types Value Global)
  (libraries containers z3 zarith))

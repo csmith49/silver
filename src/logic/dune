@@ -1,0 +1,4 @@
+(library
+ (name logic)
+ (libraries core synth containers)
+)

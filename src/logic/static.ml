@@ -1,4 +1,5 @@
 (* some simple static analyses to learn stuff about the ast *)
+open Core
 open CCOption.Infix
 open Name.Infix
 
@@ -72,7 +73,7 @@ let rec type_constraints (e : A.expr) : Types.t * C.t = match e with
         let a = Types.Variable (n <+ "type") in
         let codom = Types.Variable (n <+ "codom") in
         let dom = Types.Variable (n <+ "dom") in
-        let (t, c) = type_constraints i in
+        let (t, _) = type_constraints i in
           (codom, (dom =:= t) <&> (a =:= Types.Indexed (dom, codom)))
       end
     | A.FunCall (f, args) -> 
@@ -109,8 +110,8 @@ let rec modified_variables : A.t -> Name.t list = function
   | A.Block xs -> CCList.flat_map modified_variables xs
   | A.Assign (i, _) -> [id_to_name i]
   | A.Draw (i, _) -> [id_to_name i]
-  | A.ITE (b, l, r) -> (modified_variables l) @ (modified_variables r)
-  | A.While (b, e) -> modified_variables e
+  | A.ITE (_, l, r) -> (modified_variables l) @ (modified_variables r)
+  | A.While (_, e) -> modified_variables e
 
 let rec variables : A.t -> Name.t list = function
   | A.Block xs -> CCList.flat_map variables xs
@@ -138,7 +139,7 @@ let rec global_constraints : A.t -> C.t = function
     let (it, ic) = type_constraints (A.Identifier i) in
       (et =:= it) <&> ec <&> ic
   | A.ITE (b, l, r) ->
-    let (bt, bc) = type_constraints b in
+    let (bt, _) = type_constraints b in
     let lc = global_constraints l in
     let rc = global_constraints r in
       (bt =:= boolean) <&> lc <&> rc

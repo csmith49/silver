@@ -1,0 +1,3 @@
+(library
+(name synth)
+(libraries core parse containers))
